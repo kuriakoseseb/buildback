@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.pyc
+venv/
+.env
+
+# Database (live event data)
+*.db
+
+# Logs
+*.log
+
+# OS / editor
+.DS_Store

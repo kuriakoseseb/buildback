@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Build Back — Live</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+<style>
+  :root{--bg:#0b0b10;--surface:#15151e;--surface2:#1d1d2a;--border:#26263a;--accent:#6c63ff;
+    --green:#00e676;--yellow:#ffd740;--red:#ff5252;--text:#ececf4;--muted:#6f6f8f;
+    --pc:#4fc3f7;--laptop:#ce93d8;--gold:#ffd700;--silver:#c0c0c0;--bronze:#cd7f32;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;}
+  header{background:var(--surface);border-bottom:2px solid var(--accent);padding:18px 32px;
+    display:flex;align-items:center;justify-content:space-between;}
+  header h1{font-size:1.8rem;letter-spacing:4px;text-transform:uppercase;font-weight:800;}
+  header h1 span{color:var(--accent);}
+  .live-badge{display:flex;align-items:center;gap:8px;font-size:0.85rem;color:var(--green);font-weight:600;letter-spacing:1px;}
+  .live-dot{width:8px;height:8px;background:var(--green);border-radius:50%;animation:pulse 1.5s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.4;transform:scale(.8);}}
+
+  .stats{display:flex;gap:0;background:var(--surface);border-bottom:1px solid var(--border);padding:12px 32px;}
+  .stat{padding:0 32px;border-right:1px solid var(--border);}
+  .stat:first-child{padding-left:0;}
+  .stat:last-child{border-right:none;}
+  .stat .n{font-size:1.6rem;font-weight:800;}
+  .stat .l{font-size:0.7rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted);}
+
+  .tabs{display:flex;gap:0;background:var(--surface);border-bottom:1px solid var(--border);padding:0 32px;}
+  .tab{padding:13px 26px;font-size:0.85rem;font-weight:600;letter-spacing:1px;text-transform:uppercase;cursor:pointer;
+    border:none;background:transparent;color:var(--muted);border-bottom:3px solid transparent;}
+  .tab.active-pc{color:var(--pc);border-bottom-color:var(--pc);}
+  .tab.active-laptop{color:var(--laptop);border-bottom-color:var(--laptop);}
+  .tab.active-all{color:var(--accent);border-bottom-color:var(--accent);}
+
+  .content{padding:26px 32px;}
+
+  /* live station cards */
+  .stations{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;margin-bottom:34px;}
+  .st-cards-title{font-size:0.75rem;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:12px;}
+  .st-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;min-height:110px;}
+  .st-card.offline{opacity:.45;border-style:dashed;}
+  .st-card.running{border-color:var(--yellow);box-shadow:0 0 0 1px var(--yellow);}
+  .st-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+  .st-name{font-weight:700;font-size:0.95rem;}
+  .st-flag{font-size:0.68rem;padding:2px 7px;border-radius:4px;font-weight:700;text-transform:uppercase;}
+  .st-flag.on{background:#00e67620;color:var(--green);border:1px solid #00e67640;}
+  .st-flag.off{background:#7a7a9a20;color:var(--muted);border:1px solid #7a7a9a40;}
+  .st-flag.run{background:#ffd74020;color:var(--yellow);border:1px solid #ffd74040;animation:blink 1s infinite;}
+  .st-body .who{font-size:0.9rem;font-weight:600;}
+  .st-body .cat{font-size:0.72rem;color:var(--muted);margin-top:3px;}
+  .st-body .st-timer{font-size:1.3rem;font-weight:800;font-family:'Courier New',monospace;color:var(--green);margin-top:6px;}
+  @keyframes blink{0%,100%{opacity:1;}50%{opacity:.4;}}
+
+  .section{margin-bottom:44px;}
+  .section-header{display:flex;align-items:center;gap:12px;margin-bottom:16px;}
+  .section-header h2{font-size:0.95rem;text-transform:uppercase;letter-spacing:2px;color:var(--muted);}
+  .section-line{flex:1;height:1px;background:var(--border);}
+
+  table{width:100%;border-collapse:collapse;}
+  th{text-align:left;padding:9px 14px;font-size:0.68rem;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);border-bottom:1px solid var(--border);}
+  td{padding:12px 14px;border-bottom:1px solid var(--border);}
+  tr:last-child td{border-bottom:none;}
+  tbody tr:hover{background:var(--surface2);}
+  .rank{font-size:1.25rem;font-weight:800;width:52px;text-align:center;}
+  .r1{color:var(--gold);} .r2{color:var(--silver);} .r3{color:var(--bronze);} .rn{color:var(--muted);font-size:1rem;}
+  .p-name{font-size:1.05rem;font-weight:600;}
+  .p-sub{font-size:0.76rem;color:var(--muted);margin-top:2px;}
+  .tb{font-family:monospace;font-size:0.9rem;color:var(--muted);}
+  .tp{font-family:monospace;font-size:0.9rem;color:var(--red);}
+  .tf{font-family:monospace;font-size:1.15rem;font-weight:700;color:var(--green);}
+  .tf.running{color:var(--yellow);animation:blink 1s infinite;}
+  .tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:0.66rem;font-weight:700;text-transform:uppercase;margin-left:6px;}
+  .tag-run{background:#ffd74020;color:var(--yellow);border:1px solid #ffd74040;}
+  .tag-dq{background:#ff525220;color:var(--red);border:1px solid #ff525240;}
+  .tag-wait{background:#7a7a9a20;color:var(--muted);border:1px solid #7a7a9a40;}
+  .dq-row{opacity:.5;}
+  .running-row{background:#ffd74009 !important;}
+  .empty{text-align:center;color:var(--muted);padding:30px;font-size:0.9rem;}
+
+  /* combined podium-ish */
+  .combined-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;}
+  .comb-card{background:linear-gradient(180deg,#1a1a29,#15151e);border:1px solid var(--border);border-radius:12px;padding:16px;}
+  .comb-card .pos{font-size:1.6rem;font-weight:800;}
+  .comb-card.p1 .pos{color:var(--gold);} .comb-card.p2 .pos{color:var(--silver);} .comb-card.p3 .pos{color:var(--bronze);}
+  .comb-card .nm{font-weight:600;margin-top:6px;}
+  .comb-card .tm{font-family:'Courier New',monospace;font-size:1.3rem;font-weight:700;color:var(--green);margin-top:6px;}
+</style>
+</head>
+<body>
+<header>
+  <h1>BUILD <span>BACK</span></h1>
+  <div class="live-badge"><div class="live-dot"></div> LIVE</div>
+</header>
+
+<div class="stats" id="stats"></div>
+
+<div class="tabs">
+  <button class="tab active-all" id="tab-all" onclick="setView('all')">Overall</button>
+  <button class="tab active-pc" id="tab-pc" onclick="setView('PC')">PC</button>
+  <button class="tab active-laptop" id="tab-laptop" onclick="setView('Laptop')">Laptop</button>
+</div>
+
+<div class="content" id="content"></div>
+
+<script>
+const socket=io();
+let proj=null, view='all';
+socket.on('projector_update',load);
+socket.on('leaderboard_update',load);
+socket.on('stations_update',load);
+
+async function load(){ const r=await fetch('/api/projector'); proj=await r.json(); render(); }
+function setView(v){ view=v; document.querySelectorAll('.tab').forEach(t=>t.className='tab');
+  if(v==='all')document.getElementById('tab-all').classList.add('active-all');
+  else if(v==='PC')document.getElementById('tab-pc').classList.add('active-pc');
+  else document.getElementById('tab-laptop').classList.add('active-laptop');
+  render(); }
+
+function render(){
+  if(!proj)return;
+  document.getElementById('stats').innerHTML=`
+    <div class="stat"><div class="n">${proj.finished_count}</div><div class="l">Completed Runs</div></div>
+    <div class="stat"><div class="n">${proj.active.length}</div><div class="l">Running Now</div></div>
+    <div class="stat"><div class="n">${proj.total_participants}</div><div class="l">Teams/Players</div></div>
+    <div class="stat"><div class="n">${proj.combined.length}</div><div class="l">Completed Both</div></div>`;
+  const content=document.getElementById('content');
+  content.innerHTML=renderStations()+renderMain();
+}
+
+function renderStations(){
+  loadStationsInto();
+  return `<div class="section">
+    <div class="st-cards-title">Stations</div>
+    <div class="stations" id="stations-grid"><div class="empty">Loading stations…</div></div></div>`;
+}
+let stationsData=[];
+async function loadStationsInto(){
+  const r=await fetch('/api/stations'); stationsData=await r.json();
+  const g=document.getElementById('stations-grid'); if(!g)return;
+  if(!stationsData.length){g.innerHTML='<div class="empty">No stations configured</div>';return;}
+  g.innerHTML=stationsData.map(s=>{
+    const u=s.user, a=s.active;
+    let cls='st-card', flag='off', cat='', who='No active run', timer='—';
+    if(a){ cls+=' running'; flag='run'; who=a.name; cat=a.category+' — '+(a.play_mode==='team'?'Team':'Solo');
+      timer=fmtLive(a.start_time); }
+    else if(u.approved){ flag='on'; who='Ready'; cat='Idle'; }
+    return `<div class="${cls}">
+      <div class="st-head"><span class="st-name">${esc(u.station||u.username)}</span>
+        <span class="st-flag ${flag}">${flag==='run'?'RUN':(flag==='on'?'ON':'OFF')}</span></div>
+      <div class="st-body"><div class="who">${esc(who)}</div>
+        <div class="cat">${cat}</div>
+        ${a?`<div class="st-timer">${timer}</div>`:''}</div>
+    </div>`;
+  }).join('');
+}
+function fmtLive(start){ const s=Math.max(0,(Date.now()/1000)-start); const m=Math.floor(s/60); return `${String(m).padStart(2,'0')}:${(s%60).toFixed(1).padStart(4,'0')}`; }
+
+const CATS=['PC','Laptop'];
+function renderMain(){
+  if(view==='all') return renderCombined()+renderSection('PC',proj.ranked['PC'])+renderSection('Laptop',proj.ranked['Laptop'])+renderArchived();
+  return renderSection(view,proj.ranked[view])+renderArchived();
+}
+function renderCombined(){
+  if(!proj.combined.length)return '';
+  return `<div class="section">
+    <div class="section-header"><h2>Best Combined (PC + Laptop)</h2><div class="section-line"></div></div>
+    <div class="combined-grid">${proj.combined.map((c,i)=>{
+      const pos=i+1, cls=pos<=3?'p'+pos:'';
+      return `<div class="comb-card ${cls}"><div class="pos">${['🥇','🥈','🥉'][i]||pos}</div>
+        <div class="nm">${esc(c.name)}${c.play_mode==='team'&&c.mate?`<div style="font-size:.7rem;color:var(--muted)">👥 ${esc(c.mate)}</div>`:''}</div>
+        <div class="tm">${fmt(c.total)}</div></div>`;
+    }).join('')}</div></div>`;
+}
+function renderSection(title,data){
+  const color=title==='PC'?'var(--pc)':'var(--laptop)';
+  const finished=data.filter(x=>!x.disqualified);
+  const total=proj.runs.filter(x=>x.category===title).length;
+  const running=(proj.runs||[]).filter(x=>x.category===title&&x.status==='running');
+  const dq=proj.runs.filter(x=>x.category===title&&x.disqualified);
+  let rows='<div class="empty">No completed runs yet</div>';
+  if(finished.length || running.length || dq.length){
+    rows=finished.map((p,i)=>{
+      const cls=i<3?`r${i+1}`:'rn'; const medal=['🥇','🥈','🥉'][i]||(i+1);
+      return `<tr><td><span class="rank ${cls}">${medal}</span></td>
+        <td><div class="p-name">${esc(p.name)}</div><div class="p-sub">${p.category}${p.play_mode==='team'&&p.mate?` · Team w/ ${esc(p.mate)}`:''}</div></td>
+        <td class="tb">${fmt(p.raw_seconds)}</td><td class="tp">${p.penalty_seconds>0?'+'+p.penalty_seconds+'s':'—'}</td>
+        <td class="tp">${p.bonus_seconds>0?'−'+p.bonus_seconds+'s':'—'}</td>
+        <td class="tf">${fmt(p.final_seconds)}</td></tr>`;
+    }).join('')+
+    running.map(p=>`<tr class="running-row"><td><span class="rank rn">—</span></td>
+      <td><div class="p-name">${esc(p.name)}</div><div class="p-sub">Running…</div></td>
+      <td colspan="4"><span class="tf running">⏱ IN PROGRESS</span></td></tr>`).join('')+
+    dq.map(p=>`<tr class="dq-row"><td><span class="rank rn">DQ</span></td>
+      <td><div class="p-name">${esc(p.name)}</div></td><td colspan="4" style="color:var(--red);font-size:0.85rem">Disqualified</td></tr>`).join('');
+  }
+  return `<div class="section">
+    <div class="section-header"><h2 style="color:${color}">${title} Build — Ranking</h2><div class="section-line"></div></div>
+    <table><thead><tr><th>#</th><th>Participant</th><th>Raw</th><th>Penalties</th><th>Bonuses</th><th>Final</th></tr></thead>
+    <tbody>${rows}</tbody></table>
+    <div style="color:var(--muted);font-size:0.75rem;margin-top:8px">${total} registered · ${finished.length} finished · ${running.length} running</div></div>`;
+}
+function renderArchived(){
+  const fin=proj.runs.filter(x=>x.status==='finished'&&!x.disqualified);
+  const ordered=[...fin].sort((a,b)=>(b.end_time||0)-(a.end_time||0)).slice(0,12);
+  if(!ordered.length)return '';
+  return `<div class="section">
+    <div class="section-header"><h2>Archive — Recent Finishes</h2><div class="section-line"></div></div>
+    <table><thead><tr><th>When</th><th>Participant</th><th>Cat</th><th>Final</th></tr></thead>
+    <tbody>${ordered.map(p=>`<tr><td class="tb">${when(p.end_time)}</td>
+      <td><div class="p-name">${esc(p.name)}</div></td><td><span class="tag ${p.category==='PC'?'tag-pc':'tag-laptop'}" style="color:${p.category==='PC'?'var(--pc)':'var(--laptop)'};border-color:inherit">${p.category}</span></td>
+      <td class="tf">${fmt(p.final_seconds)}</td></tr>`).join('')}</tbody></table></div>`;
+}
+function when(t){ const d=new Date(t*1000); return d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}); }
+function fmt(s){ if(s===null||s===undefined)return '—'; s=Math.max(0,s); const m=Math.floor(s/60); return `${String(m).padStart(2,'0')}:${(s%60).toFixed(1).padStart(4,'0')}`; }
+function esc(s){ return (s||'').toString().replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+load();
+setInterval(load,1000);
+</script>
+</body>
+</html>

@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Build Back — Station</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+<style>
+  :root{--bg:#0f0f13;--surface:#1a1a24;--surface2:#22222f;--border:#2e2e40;--accent:#6c63ff;
+    --green:#00e676;--yellow:#ffd740;--red:#ff5252;--text:#e8e8f0;--muted:#7a7a9a;
+    --pc:#4fc3f7;--laptop:#ce93d8;--gold:#ffd700;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;}
+  header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;
+    display:flex;align-items:center;justify-content:space-between;}
+  header h1{font-size:1.25rem;letter-spacing:2px;text-transform:uppercase;}
+  header h1 span{color:var(--accent);}
+  .nav{display:flex;gap:10px;align-items:center;}
+  .nav-link{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:8px 14px;
+    border-radius:6px;text-decoration:none;font-size:0.82rem;}
+  .nav-link:hover{border-color:var(--accent);}
+  .nav-link.proj{background:#6c63ff20;color:var(--accent);border-color:#6c63ff60;}
+
+  .layout{display:grid;grid-template-columns:300px 1fr;min-height:calc(100vh - 58px);}
+  .sidebar{background:var(--surface);border-right:1px solid var(--border);padding:18px;overflow-y:auto;max-height:calc(100vh - 58px);}
+  .sidebar h2{font-size:0.72rem;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);margin-bottom:12px;}
+  .part-list{display:flex;flex-direction:column;gap:8px;}
+  .p-card{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;cursor:pointer;transition:all .2s;}
+  .p-card:hover{border-color:var(--accent);}
+  .p-card.selected{border-color:var(--accent);background:#6c63ff18;}
+  .p-card .name{font-weight:600;font-size:0.88rem;display:flex;justify-content:space-between;align-items:center;}
+  .p-card .meta{font-size:0.72rem;color:var(--muted);margin-top:4px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+  .tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:0.68rem;font-weight:700;text-transform:uppercase;}
+  .tag-pc{background:#4fc3f720;color:var(--pc);border:1px solid #4fc3f740;}
+  .tag-laptop{background:#ce93d820;color:var(--laptop);border:1px solid #ce93d840;}
+  .tag-team{background:#ff658420;color:var(--accent2);border:1px solid #ff658440;}
+  .tag-ind{background:#7a7a9a20;color:var(--muted);border:1px solid #7a7a9a40;}
+  .tag-running{background:#00e67620;color:var(--green);border:1px solid #00e67640;}
+  .tag-finished{background:#7a7a9a20;color:var(--muted);border:1px solid #7a7a9a40;}
+
+  .main{padding:24px;}
+  .empty{text-align:center;color:var(--muted);margin-top:20vh;font-size:0.95rem;}
+  .empty .big{font-size:3rem;display:block;margin-bottom:8px;}
+
+  .sel-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:20px;}
+  .sel-head h2{font-size:1.4rem;}
+  .sel-head .station{color:var(--muted);font-size:0.9rem;}
+
+  .timer-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px;text-align:center;margin-bottom:20px;}
+  .timer-card .label{font-size:0.72rem;text-transform:uppercase;letter-spacing:2px;color:var(--muted);}
+  .timer-card .time{font-size:4.5rem;font-weight:800;font-variant-numeric:tabular-nums;color:var(--green);
+    font-family:'Courier New',monospace;letter-spacing:2px;margin:6px 0;}
+  .timer-card .time.stopped{color:var(--muted);}
+  .timer-sums{display:flex;justify-content:center;gap:32px;margin-top:10px;font-size:0.9rem;}
+  .timer-sums .pen{color:var(--red);} .timer-sums .bon{color:var(--green);}
+  .controls{display:flex;gap:10px;margin-top:20px;}
+  .btn{padding:12px;border:none;border-radius:8px;font-weight:700;font-size:0.95rem;cursor:pointer;transition:all .15s;flex:1;}
+  .btn:active{transform:scale(.97);}
+  .btn-start{background:var(--green);color:#000;}
+  .btn-stop{background:var(--yellow);color:#000;}
+  .btn-dq{background:var(--red);color:#fff;}
+
+  .section-title{font-size:0.75rem;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);margin:22px 0 10px;}
+  .pen-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;}
+  .btn-pen{background:var(--surface);border:1px solid var(--border);color:var(--text);padding:12px;border-radius:8px;
+    cursor:pointer;text-align:left;transition:all .2s;}
+  .btn-pen:hover{border-color:var(--red);background:#ff525210;}
+  .btn-pen .l{font-size:0.82rem;font-weight:600;}
+  .btn-pen .s{font-size:0.72rem;color:var(--red);margin-top:2px;}
+
+  .log{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;max-height:180px;overflow-y:auto;}
+  .log .item{display:flex;justify-content:space-between;font-size:0.8rem;padding:5px 2px;border-bottom:1px solid var(--border);}
+  .log .item:last-child{border-bottom:none;}
+  .log .secs{font-weight:700;} .log .pen{color:var(--red);} .log .bon{color:var(--green);}
+  .log-empty{color:var(--muted);text-align:center;padding:14px;font-size:0.8rem;}
+  .log-half{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+
+  /* Mini game modal */
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,0.72);display:none;align-items:center;justify-content:center;z-index:100;}
+  .overlay.show{display:flex;}
+  .modal{background:var(--surface);border:1px solid var(--accent);border-radius:18px;width:min(640px,94vw);max-height:88vh;
+    overflow-y:auto;padding:28px;box-shadow:0 30px 80px rgba(0,0,0,.6);}
+  .modal h2{font-size:1.3rem;text-align:center;letter-spacing:1px;}
+  .modal .subhead{text-align:center;color:var(--muted);font-size:0.85rem;margin-top:6px;}
+  .game-chooser{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:20px;}
+  .game-btn{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:16px;cursor:pointer;transition:all .2s;}
+  .game-btn:hover{border-color:var(--accent);}
+  .game-btn.done{opacity:.5;border-color:var(--green);}
+  .game-btn .gicon{font-size:1.6rem;}
+  .game-btn .gname{font-weight:600;margin-top:6px;font-size:0.92rem;}
+  .game-btn .gmeta{font-size:0.75rem;color:var(--muted);margin-top:3px;}
+  .game-btn .gok{display:none;color:var(--green);font-size:0.75rem;margin-top:4px;}
+  .game-btn.done .gok{display:block;}
+
+  .gameplay{display:none;}
+  .gameplay.show{display:block;}
+  .gp-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;}
+  .gp-header .game-title{font-weight:700;font-size:1.05rem;}
+  .gp-header .progress{color:var(--muted);font-size:0.85rem;}
+  .big-answer{font-size:2.6rem;text-align:center;padding:30px;background:var(--surface2);border:1px solid var(--border);
+    border-radius:14px;margin-bottom:20px;font-weight:800;word-break:break-word;}
+  .big-answer.timer-mode{font-family:'Courier New',monospace;}
+  .answer-btns{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;}
+  .ans-btn{padding:22px;border:none;border-radius:12px;font-weight:800;font-size:1.1rem;cursor:pointer;transition:transform .1s;}
+  .ans-btn:active{transform:scale(.97);}
+  .ans-correct{background:var(--green);color:#000;}
+  .ans-wrong{background:var(--red);color:#fff;}
+  .wide-btn{width:100%;padding:16px;border:none;border-radius:10px;font-weight:700;font-size:1rem;cursor:pointer;}
+  .btn-answered{background:var(--accent);color:#fff;}
+
+  .dsi-timer-wrap{text-align:center;margin:8px 0 16px;}
+  .dsi-timer{font-size:4rem;font-weight:800;font-family:'Courier New',monospace;}
+  .dsi-timer.low{color:var(--red);animation:blink 1s infinite;}
+  @keyframes blink{0%,100%{opacity:1;}50%{opacity:.5;}}
+  .dsi-word{font-size:1.5rem;text-align:center;padding:18px;background:var(--surface2);border:1px solid var(--border);border-radius:12px;margin-bottom:16px;font-weight:700;}
+  .dsi-word span{color:var(--accent);}
+
+  .mini-summary{text-align:center;padding:10px;}
+  .mini-summary .row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:0.9rem;}
+  .mini-summary .done-msg{color:var(--green);font-size:1rem;margin-bottom:16px;font-weight:700;}
+
+  .toast{position:fixed;bottom:24px;right:24px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;
+    padding:12px 20px;font-size:0.85rem;transform:translateY(120px);opacity:0;transition:all .3s;z-index:200;}
+  .toast.show{transform:translateY(0);opacity:1;}
+  .toast.success{border-color:var(--green);color:var(--green);}
+  .toast.error{border-color:var(--red);color:var(--red);}
+  .toast.info{border-color:var(--accent);color:var(--accent);}
+</style>
+</head>
+<body>
+<header>
+  <h1>BUILD <span>BACK</span> — Station</h1>
+  <div class="nav">
+    <span style="font-size:.82rem;color:var(--muted)">👤 <span id="my-name"></span> · <span id="my-station"></span></span>
+    <a href="/competitors" target="_blank" class="nav-link">➕ Competitor</a>
+    <a href="/projector" target="_blank" class="nav-link proj">📊 Projector</a>
+    <a href="/admin" target="_blank" class="nav-link" id="admin-link" style="display:none">⚙️ Admin</a>
+    <button class="nav-link" style="border:none;cursor:pointer" onclick="logout()">Logout</button>
+  </div>
+</header>
+
+<div class="layout">
+  <aside class="sidebar">
+    <h2>Approved Participants</h2>
+    <div class="part-list" id="part-list"><div class="log-empty">Loading…</div></div>
+  </aside>
+
+  <main class="main" id="main">
+    <div class="empty"><span class="big">🖥️</span>Select a participant to start <b>PC</b> or <b>Laptop</b> run</div>
+  </main>
+</div>
+
+<!-- Mini game modal -->
+<div class="overlay" id="mg-overlay">
+  <div class="modal">
+    <h2>🎮 Mini Games</h2>
+    <div class="subhead">Auto-triggered during the build. Complete games to subtract time.</div>
+    <div class="game-chooser" id="game-chooser"></div>
+    <div style="margin-top:16px;text-align:center;">
+      <button class="wide-btn" style="background:var(--surface2);color:var(--muted);border:1px solid var(--border)" onclick="closeMinigames()">Close mini games (back to timer)</button>
+    </div>
+
+    <div class="gameplay" id="gameplay">
+      <div class="gp-header">
+        <div class="game-title" id="gp-title"></div>
+        <div class="progress" id="gp-progress"></div>
+      </div>
+      <div id="gp-body"></div>
+      <div style="margin-top:14px;text-align:center;">
+        <button class="wide-btn" id="gp-close" style="background:var(--surface2);color:var(--muted);border:1px solid var(--border)" onclick="closeGameplay()">Done — back to games</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const socket=io();
+const MINIGAMES = {{ minigames|safe }};
+const POPUP_AT = {{ popup_at }};
+const PENALTIES = {{ penalties|safe }};
+
+let me={}, participants=[], selectedRun=null, selectedPart=null;
+let timerIV=null, isRunning=false, runStart=null;
+let runPenalty=0, runBonus=0;
+let mgShowStartedAt=null, mgShown=false;
+let gameplay=null; // {game, cfg, idx, results}
+let dsiIV=null, dsiElapsed=0, dsiWord=null;
+
+socket.on('leaderboard_update', loadAll);
+
+async function init(){
+  const r=await fetch('/api/auth/me'); const d=await r.json(); me=d.user;
+  document.getElementById('my-name').textContent=me.display_name||me.username;
+  document.getElementById('my-station').textContent=me.station||'';
+  if(me.role!=='volunteer') document.getElementById('admin-link').style.display='inline-block';
+  loadAll();
+}
+async function loadAll(){ await loadParticipants(); refreshTimerOnly(); }
+async function loadParticipants(){
+  const res=await fetch('/api/participants/list'); participants=await res.json();
+  renderList();
+}
+function renderList(){
+  const el=document.getElementById('part-list');
+  const parts=participants;
+  if(!parts.length){el.innerHTML='<div class="log-empty">No approved participants yet</div>';return;}
+  el.innerHTML=parts.map(p=>{
+    const run=p.runs.find(r=>r.category===selectedRun?.category)||p.runs[0];
+    const isSel=selectedRun && p.runs.some(r=>r.id===selectedRun.id);
+    const cat=p.runs.map(r=>r.status==='running'?r.category:null).find(Boolean);
+    let statusTag='';
+    if(p.runs.some(r=>r.status==='running')) statusTag='<span class="tag tag-running">Running</span>';
+    else if(p.runs.every(r=>r.status==='finished')) statusTag='<span class="tag tag-finished">Done</span>';
+    const modeTag=`<span class="tag ${p.play_mode==='team'?'tag-team':'tag-ind'}">${p.play_mode==='team'?'Team':'Solo'}</span>`;
+    return `<div class="p-card ${isSel?'selected':''}" onclick="selectParticipant(${p.id})">
+      <div class="name"><span>${esc(p.name)}</span>${modeTag}</div>
+      <div class="meta">${p.mate?esc(p.mate):'—'} ${statusTag}</div>
+    </div>`;
+  }).join('');
+}
+function selectParticipant(pid){
+  const p=participants.find(x=>x.id===pid); if(!p)return;
+  if(p.runs.some(r=>r.status==='running')){ // jump straight to the active run control
+    const run=p.runs.find(r=>r.status==='running'); renderControl(run,p); return;
+  }
+  selectedPart=p;
+  renderRunPicker(p);
+  renderList();
+}
+function renderRunPicker(p){
+  const main=document.getElementById('main');
+  main.innerHTML=`
+    <div class="sel-head">
+      <h2>${esc(p.name)}</h2> ${p.mate?`<span class="tag tag-team">Teammate: ${esc(p.mate)}</span>`:''}
+      <span class="station">${p.play_mode==='team'?'Team':'Individual'}</span>
+    </div>
+    <div class="pen-grid" style="grid-template-columns:1fr 1fr;gap:14px;">
+      ${p.runs.map(r=>{
+        const done=r.status==='finished';
+        const cat=r.category;
+        return `<button class="btn-pen" style="padding:28px;text-align:left" onclick="renderControl(${r.id},${p.id})">
+          <div class="l" style="font-size:1.2rem">${cat==='PC'?'🖥️':'💻'} ${cat} Build</div>
+          <div class="s" style="color:var(--muted)">${done?('✔ Finished — '+fmt(r.final_seconds)):(r.status==='running'?'Running…':'Not started')}</div>
+        </button>`;
+      }).join('')}
+    </div>`;
+}
+function renderControl(runId,pid){
+  // pid may be object (from selectParticipant) or number
+  const p=typeof pid==='object'?pid:participants.find(x=>x.id===pid);
+  const run=typeof runId==='object'?runId:participants.flatMap(x=>x.runs).find(r=>r.id===runId);
+  selectedRun=run; selectedPart=p;
+  runPenalty=run.penalty_seconds||0; runBonus=run.bonus_seconds||0;
+  renderRunControl();
+  renderList();
+  loadLogs(run.id);
+  if(run.status==='running'){ startTiming(); }
+  else stopTiming();
+}
+async function renderRunControl(){
+  const run=selectedRun, p=selectedPart;
+  const main=document.getElementById('main');
+  const isDQ=run.disqualified, isFin=run.status==='finished', isRun=run.status==='running';
+  const catClass=run.category==='PC'?'tag-pc':'tag-laptop';
+  main.innerHTML=`
+    <div class="sel-head">
+      <h2>${esc(p.name)}</h2>
+      <span class="tag ${catClass}">${run.category}</span>
+      <span class="station">${me.station||''}</span>
+      ${isDQ?'<span class="tag tag-dq">DQ</span>':''}
+    </div>
+    <div class="timer-card">
+      <div class="label">${run.category} Build — Timer</div>
+      <div class="time ${isFin?'stopped':''}" id="timer-big">${isFin?fmt(run.final_seconds - run.penalty_seconds + run.bonus_seconds):'00:00.0'}</div>
+      <div class="timer-sums">
+        <span>Raw <span id="sum-raw">${isFin?fmt(run.raw_seconds):'0:00.0'}</span></span>
+        <span class="pen">Penalties +<span id="sum-pen">${runPenalty||0}</span>s</span>
+        <span class="bon">Bonuses −<span id="sum-bon">${runBonus||0}</span>s</span>
+      </div>
+      <div class="controls">
+        ${!isFin&&!isDQ?(
+          isRun
+          ? `<button class="btn btn-stop" onclick="stopRun()">⏹ Stop Timer</button>`
+          : `<button class="btn btn-start" onclick="startRun()">▶ Start Timer</button>`
+        )+`<button class="btn btn-dq" onclick="dqRun()">🚫 DQ</button>`:''
+        }
+      </div>
+    </div>
+
+    <div class="section-title">Add Penalty (+seconds)</div>
+    <div class="pen-grid">
+      ${PENALTIES.map(pn=>`<button class="btn-pen" onclick="addPenalty('${escAttr(pn.key)}')"><div class="l">${pn.label}</div><div class="s">+${pn.secs}s</div></button>`).join('')}
+    </div>
+
+    <div class="log-half" style="margin-top:22px">
+      <div>
+        <div class="section-title">Penalty Log</div>
+        <div class="log" id="pen-log"><div class="log-empty">—</div></div>
+      </div>
+      <div>
+        <div class="section-title">Mini Game Bonuses (−seconds)</div>
+        <div class="log" id="bon-log"><div class="log-empty">—</div></div>
+      </div>
+    </div>`;
+  if(isRun) startTiming();
+}
+async function loadLogs(runId){
+  const [pen,bon]=await Promise.all([
+    (await fetch(`/api/run/penalties/${runId}`)).json(),
+    (await fetch(`/api/minigame/results/${runId}`)).json()
+  ]);
+  const pel=document.getElementById('pen-log');
+  if(pel) pel.innerHTML=pen.length?pen.map(x=>`<div class="item"><span>${x.violation}</span><span class="secs pen">+${x.seconds}s</span></div>`).join(''):'<div class="log-empty">No penalties</div>';
+  const bel=document.getElementById('bon-log');
+  if(bel) bel.innerHTML=bon.length?bon.map(x=>`<div class="item"><span>${x.game} · #${x.task_index+1} ${x.detail?'('+x.detail+')':''}</span><span class="secs bon">−${x.seconds}s</span></div>`).join(''):'<div class="log-empty">No mini game bonuses</div>';
+}
+
+async function startRun(){
+  const res=await fetch('/api/run/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({run_id:selectedRun.id})});
+  const d=await res.json(); if(!d.ok) return showToast(d.error,'error');
+  runPenalty=0;runBonus=0;mgShown=false;
+  startTiming(); loadParticipants(); showToast('Timer started','success');
+}
+function startTiming(){
+  stopTiming();
+  isRunning=true;
+  runStart=Date.now()-( (selectedRun.raw_seconds||0)*1000 );
+  timerIV=setInterval(()=>{
+    const el=document.getElementById('timer-big'); if(!el)return;
+    el.textContent=fmt((Date.now()-runStart)/1000);
+    const elapsed=(Date.now()-runStart)/1000;
+    if(!mgShown && elapsed>=POPUP_AT && me.role!=='admin'){ openMinigames(); }
+  },100);
+}
+function stopTiming(){ if(timerIV)clearInterval(timerIV); isRunning=false; }
+function refreshTimerOnly(){ if(isRunning){const el=document.getElementById('timer-big'); if(el)el.textContent=fmt((Date.now()-runStart)/1000);} }
+async function stopRun(){
+  stopTiming();
+  const res=await fetch('/api/run/stop',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({run_id:selectedRun.id})});
+  const d=await res.json();
+  if(d.ok){ showToast(`Finished: ${fmt(d.final)}`,'success'); selectedRun.status='finished'; renderRunControl(); loadParticipants(); }
+  else showToast(d.error,'error');
+}
+async function addPenalty(v){
+  const res=await fetch('/api/run/penalty',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({run_id:selectedRun.id,violation:v})});
+  const d=await res.json(); if(!d.ok)return showToast(d.error,'error');
+  runPenalty+=d.added; showToast(`+${d.added}s ${v}`,'error'); updateSums(); loadLogs(selectedRun.id);
+}
+async function dqRun(){
+  if(!confirm('Disqualify this run?'))return;
+  await fetch('/api/run/disqualify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({run_id:selectedRun.id})});
+  stopTiming(); selectedRun.status='finished'; selectedRun.disqualified=1; renderRunControl(); showToast('Disqualified','error');
+}
+function updateSums(){
+  const p=document.getElementById('sum-pen'); if(p)p.textContent=runPenalty||0;
+  const b=document.getElementById('sum-bon'); if(b)b.textContent=runBonus||0;
+}
+
+/* ── Mini games ── */
+let currentGames=[];
+function openMinigames(){
+  if(!selectedRun || selectedRun.status!=='running') return;
+  mgShown=true;
+  const isTeam=selectedPart.play_mode==='team';
+  currentGames=Object.keys(MINIGAMES).filter(k=>!MINIGAMES[k].teams_only||isTeam);
+  const overlay=document.getElementById('mg-overlay');
+  const chooser=document.getElementById('game-chooser');
+  const gameplay=document.getElementById('gameplay');
+  gameplay.classList.remove('show');
+  chooser.innerHTML=currentGames.map((k,i)=>{
+    const g=MINIGAMES[k];
+    return `<div class="game-btn" data-game="${i}" onclick="startGame(${i})">
+      <div class="gicon">${g.icon}</div><div class="gname">${k}</div>
+      <div class="gmeta">${g.tasks} task${g.tasks>1?'s':''} · ${g.model==='timed'?'20s timed':'Correct = −'+g.bonus+'s'}</div>
+      <div class="gok">✔ Completed</div>
+    </div>`;
+  }).join('');
+  overlay.classList.add('show');
+  decorateGameButtons();
+}
+function decorateGameButtons(){
+  if(!selectedRun)return;
+  fetch(`/api/minigame/results/${selectedRun.id}`).then(r=>r.json()).then(results=>{
+    document.querySelectorAll('.game-btn').forEach(btn=>{
+      const key=currentGames[parseInt(btn.dataset.game)];
+      const total=MINIGAMES[key]?.tasks||0;
+      const done=results.filter(x=>x.game===key).length;
+      if(done>=total) btn.classList.add('done');
+    });
+  });
+}
+function startGame(idx){
+  const name=currentGames[idx];
+  document.getElementById('game-chooser').style.display='none';
+  const gp=document.getElementById('gameplay');
+  gp.classList.add('show');
+  gameplay={game:name,cfg:MINIGAMES[name],idx:0,results:[]};
+  document.getElementById('gp-title').textContent=MINIGAMES[name].icon+' '+name;
+  renderGameplay();
+}
+function renderGameplay(){
+  const {cfg,idx}=gameplay;
+  document.getElementById('gp-progress').textContent=`Task ${idx+1} / ${cfg.tasks}`;
+  const body=document.getElementById('gp-body');
+  if(cfg.model==='timed'){ renderDSI(); }
+  else{
+    body.innerHTML=`
+      <div class="big-answer" id="tap-word">Task ${idx+1}</div>
+      <div class="answer-btns">
+        <button class="ans-btn ans-correct" onclick="tapAnswer('correct')">✅ Correct</button>
+        <button class="ans-btn ans-wrong" onclick="tapAnswer('incorrect')">❌ Incorrect</button>
+      </div>`;
+  }
+}
+async function tapAnswer(result){
+  const {cfg,idx}=gameplay;
+  const d=await postResult(cfg,result);
+  if(cfg.model==='tap'){
+    gameplay.results.push(result);
+    if(result==='correct'&&d.bonus>0) showToast(`−${d.bonus}s bonus`,'success');
+  }
+  if(idx+1>=cfg.tasks){ finishGame(); return; }
+  gameplay.idx++;
+  renderGameplay();
+}
+/* Don't Say It */
+function renderDSI(){
+  const body=document.getElementById('gp-body');
+  const word=GENERIC_WORDS[gameplay.idx % GENERIC_WORDS.length];
+  dsiWord=word;
+  body.innerHTML=`
+    <div class="dsi-word">Describe: <span>${word}</span></div>
+    <div class="dsi-timer-wrap"><div class="dsi-timer" id="dsi-t">20.0</div>
+      <div style="color:var(--muted);font-size:0.8rem;margin-top:4px">Teammate guesses — tap <b>Answered</b> when correct</div>
+    </div>
+    <button class="wide-btn btn-answered" onclick="dsiAnswered()">✓ Answered (correct guess)</button>
+    <div style="margin-top:10px;text-align:center"><button class="wide-btn" style="background:var(--surface2);color:var(--muted);border:1px solid var(--border)" onclick="dsiTimeout()">Skip (timeout)</button></div>`;
+  startDSITimer();
+}
+const GENERIC_WORDS=['Motherboard','Processor','RAM','Graphics Card','SSD','Fan','Port','Keyboard','Battery','Monitor'];
+function startDSITimer(){
+  clearInterval(dsiIV); dsiElapsed=0;
+  const t=document.getElementById('dsi-t');
+  dsiIV=setInterval(()=>{
+    dsiElapsed+=0.1;
+    const remain=20-dsiElapsed;
+    if(t){ t.textContent=Math.max(0,remain).toFixed(1);
+      t.classList.toggle('low',remain<=5); }
+    if(dsiElapsed>=20){ clearInterval(dsiIV); dsiTimeout(); }
+  },100);
+}
+async function dsiAnswered(){
+  clearInterval(dsiIV);
+  const d=await postResult(gameplay.cfg,'answered',dsiElapsed);
+  showToast(`−${d.bonus}s (${dsiElapsed.toFixed(1)}s)`,'success');
+  advanceOrFinish();
+}
+async function dsiTimeout(){
+  clearInterval(dsiIV);
+  await postResult(gameplay.cfg,'timeout',20);
+  showToast('No bonus','info');
+  advanceOrFinish();
+}
+function advanceOrFinish(){
+  if(gameplay.idx+1>=gameplay.cfg.tasks){ finishGame(); return; }
+  gameplay.idx++; renderGameplay();
+}
+async function postResult(cfg,result,elapsed){
+  const res=await fetch('/api/minigame/result',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({run_id:selectedRun.id,game:gameplay.game,task_index:gameplay.idx,result,elapsed:elapsed||null})});
+  const d=await res.json();
+  if(d.bonus>0){ runBonus+=d.bonus; updateSums(); }
+  return d;
+}
+function finishGame(){
+  clearInterval(dsiIV);
+  const gp=document.getElementById('gameplay'); gp.classList.remove('show');
+  document.getElementById('game-chooser').style.display='grid';
+  decorateGameButtons(); loadLogs(selectedRun.id);
+}
+function closeGameplay(){
+  clearInterval(dsiIV);
+  document.getElementById('gameplay').classList.remove('show');
+  document.getElementById('game-chooser').style.display='grid';
+}
+function closeMinigames(){
+  clearInterval(dsiIV);
+  document.getElementById('mg-overlay').classList.remove('show');
+  document.getElementById('gameplay').classList.remove('show');
+  document.getElementById('game-chooser').style.display='grid';
+}
+
+async function logout(){ await fetch('/api/auth/logout',{method:'POST'}); window.location.href='/login'; }
+
+function fmt(s){ if(s===null||s===undefined)return '0:00.0'; s=Math.max(0,s);
+  const m=Math.floor(s/60); return `${m}:${(s%60).toFixed(1).padStart(4,'0')}`; }
+function esc(s){ return (s||'').toString().replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function escAttr(s){ return esc(s).replace(/'/g,'&#39;'); }
+
+const toast=document.getElementById('toast');
+function showToast(msg,type='success'){ toast.textContent=msg; toast.className=`toast show ${type}`;
+  setTimeout(()=>toast.className='toast',2400); }
+
+init();
+</script>
+</body>
+</html>

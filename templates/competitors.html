@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Build Back — Add Competitor</title>
+<style>
+  :root{--bg:#0f0f13;--surface:#1a1a24;--surface2:#22222f;--border:#2e2e40;--accent:#6c63ff;
+    --green:#00e676;--yellow:#ffd740;--red:#ff5252;--text:#e8e8f0;--muted:#7a7a9a;
+    --pc:#4fc3f7;--laptop:#ce93d8;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;}
+  header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;
+    display:flex;align-items:center;justify-content:space-between;}
+  header h1{font-size:1.25rem;letter-spacing:2px;text-transform:uppercase;}
+  header h1 span{color:var(--accent);}
+  .nav{display:flex;gap:10px;align-items:center;}
+  .nav-link{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:8px 14px;border-radius:6px;text-decoration:none;font-size:0.82rem;}
+  .nav-link:hover{border-color:var(--accent);}
+  .nav-link.active{background:#6c63ff20;color:var(--accent);border-color:#6c63ff60;}
+
+  .wrap{max-width:760px;margin:28px auto;padding:0 20px;}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:26px;}
+  .tabs{display:flex;gap:6px;margin-bottom:22px;}
+  .tab{flex:1;padding:12px;border-radius:8px;border:1px solid var(--border);background:transparent;
+       color:var(--muted);font-weight:600;cursor:pointer;font-size:0.85rem;letter-spacing:.5px;transition:all .2s;}
+  .tab.active{background:#6c63ff20;color:var(--accent);border-color:var(--accent);}
+  .tab.team.active{background:#ce93d820;color:var(--laptop);border-color:var(--laptop);}
+  .mode-notice{font-size:0.8rem;color:var(--muted);margin-bottom:18px;}
+  .field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px;}
+  .field label{font-size:0.8rem;color:var(--muted);}
+  .field label .req{color:var(--red);}
+  .section-label{font-size:0.75rem;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);margin:18px 0 12px;}
+  .three{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
+  input,select{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:10px 12px;border-radius:6px;font-size:0.9rem;width:100%;outline:none;}
+  input:focus,select:focus{border-color:var(--accent);}
+  .btn{width:100%;padding:13px;border:none;border-radius:8px;font-size:0.95rem;font-weight:700;cursor:pointer;transition:opacity .2s;}
+  .btn:active{transform:scale(.98);}
+  .btn-primary{background:var(--accent);color:#fff;}
+  .btn-primary:hover{opacity:.85;}
+  .msg{display:none;padding:11px 14px;border-radius:8px;font-size:0.85rem;margin-bottom:14px;}
+  .msg.err{display:block;background:#ff525210;color:var(--red);border:1px solid #ff525240;}
+  .msg.ok{display:block;background:#00e67610;color:var(--green);border:1px solid #00e67640;}
+</style>
+</head>
+<body>
+<header>
+  <h1>BUILD <span>BACK</span> — Add Competitor</h1>
+  <div class="nav">
+    <span style="font-size:.82rem;color:var(--muted)" id="whoami"></span>
+    <a href="/competitors" class="nav-link active">➕ Competitor</a>
+    <a href="/volunteer" target="_blank" class="nav-link">🔧 Station</a>
+    <a href="/admin" target="_blank" class="nav-link">⚙️ Admin</a>
+    <a href="/projector" target="_blank" class="nav-link">📊 Projector</a>
+    <button class="nav-link" style="border:none;cursor:pointer" onclick="logout()">Logout</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="card">
+    <div class="tabs">
+      <button class="tab active" id="tab-ind" onclick="setMode('individual')">👤 Individual</button>
+      <button class="tab team" id="tab-team" onclick="setMode('team')">👥 Team (2)</button>
+    </div>
+    <div class="mode-notice" id="mode-notice">Individual play — compete solo across both PC &amp; Laptop builds.</div>
+
+    <div class="section-label">Primary Student (mandatory)</div>
+    <div class="field"><label>Full Name <span class="req">*</span></label>
+      <input type="text" id="s1-name" placeholder="Student name"></div>
+    <div class="three">
+      <div class="field"><label>Department <span class="req">*</span></label><input type="text" id="s1-dept" placeholder="CSE"></div>
+      <div class="field"><label>Semester <span class="req">*</span></label><input type="text" id="s1-sem" placeholder="4"></div>
+      <div class="field"><label>College <span class="req">*</span></label><input type="text" id="s1-college" placeholder="College name"></div>
+    </div>
+
+    <div id="team-section" style="display:none;">
+      <div class="section-label">Teammate (required for team play)</div>
+      <div class="field"><label>Full Name</label><input type="text" id="s2-name" placeholder="Teammate name"></div>
+      <div class="three">
+        <div class="field"><label>Department</label><input type="text" id="s2-dept" placeholder="CSE"></div>
+        <div class="field"><label>Semester</label><input type="text" id="s2-sem" placeholder="4"></div>
+        <div class="field"><label>College</label><input type="text" id="s2-college" placeholder="College name"></div>
+      </div>
+    </div>
+
+    <button class="btn btn-primary" onclick="submitCompetitor()">Add Competitor</button>
+    <div class="msg" id="reg-msg"></div>
+  </div>
+</div>
+
+<script>
+let mode='individual';
+function setMode(m){ mode=m;
+  document.getElementById('tab-ind').className='tab'+(m==='individual'?' active':'');
+  document.getElementById('tab-team').className='tab team'+(m==='team'?' active':'');
+  document.getElementById('team-section').style.display=m==='team'?'block':'none';
+  document.getElementById('mode-notice').textContent=m==='individual'
+    ?'Individual play — compete solo across both PC & Laptop builds.'
+    :'Team play (2 students) — both must be registered. Includes the Don\'t Say It mini game.';
+}
+function byId(id){return document.getElementById(id);}
+function val(ids){const a=ids.map(byId);return {name:a[0].value,department:a[1].value,semester:a[2].value,college:a[3].value};}
+
+async function submitCompetitor(){
+  const msg=byId('reg-msg'); msg.className='msg err';
+  const students=[val(['s1-name','s1-dept','s1-sem','s1-college'])];
+  if(mode==='team') students.push(val(['s2-name','s2-dept','s2-sem','s2-college']));
+  const res=await fetch('/api/participants',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({play_mode:mode,students})});
+  const d=await res.json();
+  if(d.ok){ msg.className='msg ok'; msg.textContent=d.msg+'. They\'re now pending approval in the Admin tab.';
+    ['s1-name','s1-dept','s1-sem','s1-college','s2-name','s2-dept','s2-sem','s2-college'].forEach(id=>{const e=byId(id); if(e)e.value='';});
+  } else { msg.className='msg err'; msg.textContent=d.error; }
+}
+async function logout(){ await fetch('/api/auth/logout',{method:'POST'}); window.location.href='/login'; }
+(async function(){ try{ const r=await fetch('/api/auth/me'); const d=await r.json();
+  if(d.ok) byId('whoami').textContent='👤 '+(d.user.display_name||d.user.username); }catch(e){} })();
+</script>
+</body>
+</html>

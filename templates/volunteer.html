@@ -346,6 +346,10 @@ async function renderRunControl(){
         )+`<button class="btn btn-dq" onclick="dqRun()">🚫 DQ</button>`:''
         }
       </div>
+      ${isRun?`
+      <div style="margin-top:14px">
+        <button class="wide-btn btn-answered" onclick="openMinigames()">🎮 Mini Games ${mgShown?'(2:30 auto-open done)':'(open now)'}</button>
+      </div>`:''}
     </div>
 
     <div class="section-title">Add Penalty (+seconds)</div>
@@ -385,7 +389,8 @@ async function startRun(){
   me.station=station;
   const ms=document.getElementById('my-station'); if(ms) ms.textContent=station;
   runPenalty=0;runBonus=0;mgShown=false;
-  startTiming(); loadParticipants(); showToast('Timer started','success');
+  selectedRun.status='running';
+  startTiming(); renderRunControl(); loadParticipants(); showToast('Timer started','success');
 }
 function startTiming(){
   stopTiming();

@@ -227,8 +227,9 @@ function renderSection(title,data){
         <td class="tf">${fmt(p.final_seconds)}</td></tr>`;
     }).join('')+
     running.map(p=>`<tr class="running-row"><td><span class="rank rn">—</span></td>
-      <td><div class="p-name">${esc(p.name)}</div><div class="p-sub">Running…</div></td>
-      <td colspan="4"><span class="tf running">⏱ IN PROGRESS</span></td></tr>`).join('')+
+      <td><div class="p-name">${esc(p.name)}</div><div class="p-sub">Running… ${p.play_mode==='team'&&p.mate?`w/ ${esc(p.mate)} `:''}<span class="tag tag-run">LIVE</span></div></td>
+      <td colspan="3"></td>
+      <td class="tf running" data-live="1" data-start="${p.start_time}">${fmtLive(p.start_time)}</td></tr>`).join('')+
     dq.map(p=>`<tr class="dq-row"><td><span class="rank rn">DQ</span></td>
       <td><div class="p-name">${esc(p.name)}</div></td><td colspan="4" style="color:#fff;font-size:0.9rem">Disqualified</td></tr>`).join('');
   }

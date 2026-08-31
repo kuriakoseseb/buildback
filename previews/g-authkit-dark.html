@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AuthKit Dark — Monochrome</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#06070b;--surface:rgba(255,255,255,.04);--surface2:rgba(255,255,255,.07);--border:rgba(255,255,255,.12);--ink:#f2f4f7;--muted:#96a0ad;
+    --accent:#e8ebf0;--accent2:#7c8694;--green:#7fa08c;--yellow:#c9b26b;--red:#c26b6b;
+    --pc:#9fb3c8;--laptop:#a8a3c6;--shadow:0 16px 44px rgba(0,0,0,.5);}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--ink);font-family:'Inter',system-ui,sans-serif;min-height:100vh;overflow-x:hidden;}
+  body::before{content:"";position:fixed;inset:-20%;z-index:-2;
+    background:radial-gradient(720px at 18% 12%,rgba(255,255,255,.05),transparent 60%),
+      radial-gradient(640px at 82% 20%,rgba(180,190,210,.05),transparent 60%);
+    animation:drift 16s ease-in-out infinite alternate;pointer-events:none;}
+  @keyframes drift{0%{transform:translate(0,0)}100%{transform:translate(3%,-2%)}}
+  @keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
+
+  h1,h2,h3,.btn,.nav-link{font-family:'Inter',system-ui,sans-serif;}
+  header{background:rgba(6,7,11,.7);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-bottom:1px solid var(--border);
+    padding:16px 26px;position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;}
+  header h1{font-size:1.28rem;letter-spacing:2px;text-transform:uppercase;font-weight:800;
+    background:linear-gradient(90deg,#fff,var(--accent2));
+    -webkit-background-clip:text;background-clip:text;color:transparent;}
+  .nav{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+  .nav-link{background:transparent;border:1px solid transparent;color:var(--muted);padding:9px 15px;border-radius:10px;text-decoration:none;font-size:.85rem;font-weight:500;transition:all .2s;}
+  .nav-link:hover{color:#fff;background:rgba(255,255,255,.08);border-color:var(--border);}
+  .nav-link.active{color:#fff;background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.25);}
+
+  .content{padding:28px;max-width:880px;margin:0 auto;}
+  .hero{margin:10px 0 24px;}
+  .hero h2{color:#fff;font-size:2rem;line-height:1.12;margin-bottom:8px;font-weight:700;}
+  .hero h2 span{background:linear-gradient(90deg,#fff,#8a93a1);
+    -webkit-background-clip:text;background-clip:text;color:transparent;}
+  .hero p{color:var(--muted);font-size:.95rem;}
+
+  .card{background:var(--surface);backdrop-filter:blur(16px);border:1px solid var(--border);border-radius:16px;padding:22px;margin-bottom:20px;
+    box-shadow:var(--shadow);animation:rise .45s both;}
+  .card h3{font-size:.75rem;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:16px;font-weight:700;}
+  .card .hint{font-size:.82rem;color:var(--muted);margin-bottom:16px;}
+
+  .row{display:flex;align-items:center;justify-content:space-between;background:var(--surface2);border:1px solid var(--border);
+    border-radius:12px;padding:14px 16px;margin-bottom:10px;transition:all .2s;animation:rise .4s both;}
+  .row:hover{border-color:rgba(255,255,255,.35);transform:translateY(-2px);box-shadow:0 8px 26px rgba(0,0,0,.35);}
+  .who .nm{font-weight:600;font-size:.95rem;}
+  .who .det{font-size:.8rem;color:var(--muted);margin-top:2px;}
+  .tag{display:inline-block;padding:3px 11px;border-radius:999px;font-size:.72rem;font-weight:700;}
+  .tag-pc{background:rgba(159,179,200,.12);color:var(--pc);}
+  .tag-lap{background:rgba(168,163,198,.12);color:var(--laptop);}
+  .mono{font-family:ui-monospace,SFMono-Regular,monospace;font-weight:600;color:#fff;font-size:.95rem;}
+  .live{display:inline-flex;align-items:center;gap:6px;color:var(--green);font-size:.78rem;font-weight:700;}
+  .live::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--green);animation:pulse 1.5s infinite;}
+
+  .frow{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;}
+  .field{display:flex;flex-direction:column;gap:6px;flex:1;min-width:180px;}
+  .field label{font-size:.72rem;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);}
+  select,input{background:#0a0c13;border:1px solid var(--border);border-radius:10px;color:#fff;padding:12px 14px;font-size:.9rem;width:100%;outline:none;font-family:'Inter',sans-serif;transition:all .2s;}
+  select:focus,input:focus{border-color:rgba(255,255,255,.45);box-shadow:0 0 0 3px rgba(255,255,255,.08);}
+
+  .btns{display:flex;gap:10px;margin-top:6px;}
+  .btn{padding:12px 22px;border-radius:10px;font-size:.9rem;font-weight:600;cursor:pointer;transition:all .2s;}
+  .btn:hover{transform:translateY(-1px);filter:brightness(1.08);}
+  .btn-accent{background:linear-gradient(135deg,#ffffff,#b9c0cb);color:#0a0c12;border:none;box-shadow:0 8px 24px rgba(255,255,255,.1);}
+  .btn-green{background:linear-gradient(135deg,#6f8f7d,#4a6b5a);color:#fff;border:none;}
+  .btn-red{background:linear-gradient(135deg,#a14c4c,#7a3636);color:#fff;border:none;}
+  .btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--border);}
+  .btn-ghost:hover{color:#fff;border-color:rgba(255,255,255,.35);}
+
+  table{width:100%;border-collapse:collapse;font-size:.88rem;}
+  th{text-align:left;padding:8px 10px;color:var(--muted);font-weight:600;border-bottom:1px solid var(--border);letter-spacing:.3px;}
+  td{padding:9px 10px;border-bottom:1px solid rgba(255,255,255,.06);}
+  .gold{color:var(--yellow);font-weight:700;}
+
+  .banner{background:linear-gradient(120deg,rgba(255,255,255,.1),rgba(255,255,255,.03));border:1px solid rgba(255,255,255,.2);
+    border-radius:14px;padding:14px 18px;margin-bottom:20px;display:flex;align-items:center;gap:12px;animation:rise .5s both;}
+  .banner .txt{font-size:.88rem;font-weight:600;color:#fff;}
+  .banner .txt small{display:block;color:var(--muted);font-weight:500;font-size:.75rem;}
+
+  @media (max-width:640px){
+    .content{padding:18px;}
+    .hero h2{font-size:1.5rem;}
+    .nav{gap:6px;}
+    .nav-link{padding:7px 10px;font-size:.78rem;}
+    .row{flex-direction:column;align-items:flex-start;gap:8px;}
+    .row>div:last-child{width:100%;display:flex;justify-content:space-between;align-items:center;}
+    .frow{flex-direction:column;align-items:stretch;}
+    .btn,.btns{width:100%;}
+    .btns{flex-wrap:wrap;}
+    .btns .btn{flex:1;}
+    .card{padding:18px;}
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>BUILD BACK</h1>
+  <div class="nav">
+    <a href="javascript:;" class="nav-link active">🔧 Station</a>
+    <a href="javascript:;" class="nav-link">➕ Competitor</a>
+    <a href="javascript:;" class="nav-link">📊 Projector</a>
+    <button class="nav-link" style="cursor:pointer">Logout</button>
+  </div>
+</header>
+<div class="content">
+  <div class="hero">
+    <h2><span>Monochrome</span> Dark</h2>
+    <p>Grid removed. Pure black/white/grey palette with silver gradient accents and soft neutral glows.</p>
+  </div>
+
+  <div class="banner">
+    <div style="font-size:1.6rem">🚀</div>
+    <div class="txt">Ready to compete! <small>Competitors are auto-approved — add and go.</small></div>
+  </div>
+
+  <div class="card">
+    <h3>Station 1 — Level 1 · PC</h3>
+    <div class="row">
+      <div class="who"><div class="nm">Asif Muhammed</div><div class="det">Started 01:12 ago</div></div>
+      <div><span class="live">LIVE</span> <span class="mono">12:09:41</span></div>
+    </div>
+    <div class="row">
+      <div class="who"><div class="nm">Team Volt</div><div class="det">👥 with Sana K.</div></div>
+      <div><span class="tag tag-pc">PC</span> <span class="tag tag-lap">LAPTOP</span> <span class="mono">08:03:27</span></div>
+    </div>
+    <div class="frow" style="margin-top:16px">
+      <div class="field"><label>Competitor</label><select><option>Asif Muhammed</option><option>Team Volt</option></select></div>
+      <div class="field"><label>Station</label><select><option>Level 1 — PC</option><option>Level 2 — Laptop</option></select></div>
+      <div class="btns"><button class="btn btn-accent">Start Run</button></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Leaderboard — Combined</h3>
+    <table>
+      <thead><tr><th>#</th><th>Team</th><th>Runs</th><th>Time</th></tr></thead>
+      <tbody>
+        <tr><td class="gold">🥇</td><td>Asif Muhammed</td><td>PC · Laptop</td><td class="mono">21:15:58</td></tr>
+        <tr><td>🥈</td><td>Team Volt</td><td>Laptop</td><td class="mono">24:37:10</td></tr>
+        <tr><td>🥉</td><td>Rebecca</td><td>PC</td><td class="mono">26:02:44</td></tr>
+      </tbody>
+    </table>
+    <div class="btns" style="margin-top:16px">
+      <button class="btn btn-ghost">View Projector</button>
+      <button class="btn btn-green">Approve Staff</button>
+      <button class="btn btn-red">Delete</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>

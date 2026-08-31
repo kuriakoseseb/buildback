@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, session, redirect, url_for
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for, abort, Response
 from flask_socketio import SocketIO, emit
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
@@ -6,7 +6,7 @@ import sqlite3, time, json, os
 from datetime import datetime
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'builback2024')
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'builback-v2-5051')
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 BASE = os.path.dirname(os.path.abspath(__file__))
@@ -65,6 +65,8 @@ def init_db():
             for t in ('settings', 'minigame_results', 'penalties', 'runs', 'students', 'participants', 'users'):
                 conn.execute(f'DROP TABLE IF EXISTS {t}')
         conn.executescript('''
+            DROP TABLE IF EXISTS stations;
+
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT UNIQUE NOT NULL,
@@ -138,25 +140,7 @@ def init_db():
                 key TEXT PRIMARY KEY,
                 value TEXT
             );
-
-            CREATE TABLE IF NOT EXISTS stations (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                number INTEGER NOT NULL,
-                level TEXT NOT NULL CHECK(level IN ('PC','Laptop')),
-                label TEXT,
-                active INTEGER DEFAULT 1
-            );
         ''')
-
-        # Seed default stations (6 PC + 2 Laptop, matching the equipment list)
-        cur = conn.execute('SELECT COUNT(*) c FROM stations').fetchone()
-        if cur['c'] == 0:
-            for n in range(1, 7):
-                conn.execute('INSERT INTO stations (number, level, label) VALUES (?,?,?)',
-                             (n, 'PC', f'PC Station {n}'))
-            for n in (1, 2):
-                conn.execute('INSERT INTO stations (number, level, label) VALUES (?,?,?)',
-                             (n, 'Laptop', f'Laptop Station {n}'))
 
         # Seed default admin (first run only)
         if not conn.execute("SELECT id FROM users WHERE username='admin'").fetchone():
@@ -290,6 +274,14 @@ def projector_page():
                            categories=CATEGORIES)
 
 
+@app.route('/preview/<name>', methods=['GET'])
+def preview_page(name):
+    path = os.path.join(BASE, 'previews', f'{name}.html')
+    if not os.path.isfile(path):
+        abort(404)
+    return Response(open(path, encoding='utf-8').read(), mimetype='text/html')
+
+
 # ── Auth API ────────────────────────────────────────────────────────────────
 
 @app.route('/api/auth/register', methods=['POST'])
@@ -304,8 +296,6 @@ def register():
     station = (d.get('station') or '').strip()
     if len(username) < 3 or len(password) < 4:
         return jsonify({'ok': False, 'error': 'Username (3+) and password (4+) required'})
-    if not station:
-        return jsonify({'ok': False, 'error': 'Volunteers must have a station'})
     with get_db() as conn:
         if conn.execute('SELECT id FROM users WHERE username=?', (username,)).fetchone():
             return jsonify({'ok': False, 'error': 'Username taken'})
@@ -330,8 +320,6 @@ def create_staff():
         return jsonify({'ok': False, 'error': 'Only admin/super may be created here (volunteers self-register)'})
     if len(username) < 3 or len(password) < 4:
         return jsonify({'ok': False, 'error': 'Username (3+) and password (4+) required'})
-    if role == 'volunteer' and not station:
-        return jsonify({'ok': False, 'error': 'Volunteers must have a station'})
     with get_db() as conn:
         if conn.execute('SELECT id FROM users WHERE username=?', (username,)).fetchone():
             return jsonify({'ok': False, 'error': 'Username taken'})
@@ -436,7 +424,7 @@ def add_participant():
 
     with get_db() as conn:
         cur = conn.execute('INSERT INTO participants (play_mode, approved, created_at) VALUES (?,?,?)',
-                           (mode, 0, time.time()))
+                           (mode, 1, time.time()))
         pid = cur.lastrowid
         conn.execute('INSERT INTO students (participant_id,slot,name,department,semester,college) VALUES (?,1,?,?,?,?)',
                      (pid, s1['name'], s1['department'], s1['semester'], s1['college']))
@@ -446,12 +434,15 @@ def add_participant():
                 return jsonify({'ok': False, 'error': 'Team play requires teammate details'})
             conn.execute('INSERT INTO students (participant_id,slot,name,department,semester,college) VALUES (?,2,?,?,?,?)',
                          (pid, s2['name'], s2['department'], s2['semester'], s2['college']))
-    return jsonify({'ok': True, 'msg': 'Registered — awaiting approval'})
+        for cat in CATEGORIES:
+            conn.execute('INSERT INTO runs (participant_id,category,status,created_at) VALUES (?,?,?,?)',
+                         (pid, cat, 'waiting', time.time()))
+    return jsonify({'ok': True, 'msg': 'Registered — ready to compete'})
 
 
 @app.route('/api/participants/list', methods=['GET'])
 @login_required
-@roles_required('admin', 'super')
+@roles_required('volunteer', 'super', 'admin')
 def list_participants():
     with get_db() as conn:
         rows = conn.execute('''SELECT p.id, p.play_mode, p.approved,
@@ -482,6 +473,7 @@ def recalc(run, conn):
 def start_run():
     d = request.json
     run_id = d.get('run_id')
+    station = (d.get('station') or '').strip() or None
     u = current_user()
     now = time.time()
     with get_db() as conn:
@@ -493,7 +485,9 @@ def start_run():
         conn.execute('''UPDATE runs SET start_time=?, status='running', end_time=NULL,
                         raw_seconds=0, penalty_seconds=0, bonus_seconds=0, final_seconds=0, disqualified=0,
                         volunteer_id=?, station=? WHERE id=?''',
-                     (now, u['id'], u.get('station'), run_id))
+                     (now, u['id'], station or '', run_id))
+        if station:
+            conn.execute('UPDATE users SET station=? WHERE id=?', (station, u['id']))
         conn.execute('DELETE FROM penalties WHERE run_id=?', (run_id,))
         conn.execute('DELETE FROM minigame_results WHERE run_id=?', (run_id,))
     broadcast_all()
@@ -668,12 +662,34 @@ def staff_approve():
     return jsonify({'ok': True})
 
 
+@app.route('/api/staff/role', methods=['POST'])
+@login_required
+@roles_required('admin')
+def staff_role():
+    """Admin manually assigns a role to an approved staff account."""
+    uid = request.json['uid']
+    role = request.json.get('role')
+    if role not in ROLES:
+        return jsonify({'ok': False, 'error': 'Invalid role'})
+    me = current_user()
+    if uid == me['id']:
+        return jsonify({'ok': False, 'error': "You can't change your own role"})
+    with get_db() as conn:
+        conn.execute('UPDATE users SET role=? WHERE id=?', (role, uid))
+    return jsonify({'ok': True, 'msg': f'Role set to {role}'})
+
+
 @app.route('/api/staff/delete', methods=['POST'])
 @login_required
 @roles_required('admin')
 def staff_delete():
     uid = request.json['uid']
+    me = current_user()
+    if uid == me['id']:
+        return jsonify({'ok': False, 'error': "You can't delete your own account"})
     with get_db() as conn:
+        # unlink any runs that volunteer started, then delete
+        conn.execute('UPDATE runs SET volunteer_id=NULL WHERE volunteer_id=?', (uid,))
         conn.execute('DELETE FROM users WHERE id=?', (uid,))
     return jsonify({'ok': True})
 
@@ -701,51 +717,6 @@ def save_penalty_settings():
         conn.execute('UPDATE settings SET value=? WHERE key=?', (json.dumps(cleaned), 'penalties'))
     broadcast_all()
     return jsonify({'ok': True, 'penalties': get_settings()})
-
-
-# ── Stations (merged from the downloaded build) ─────────────────────────────
-
-def get_stations_list():
-    with get_db() as conn:
-        rows = conn.execute('''SELECT s.*,
-                               (SELECT display_name || ' (' || username || ')' FROM users u
-                                WHERE u.role='volunteer' AND u.station = 'Station ' || s.number
-                                LIMIT 1) as volunteer_label
-                               FROM stations s WHERE active=1 ORDER BY s.level, s.number''').fetchall()
-    return [dict(r) for r in rows]
-
-
-@app.route('/api/stations', methods=['GET'])
-@login_required
-def api_stations_list():
-    return jsonify(get_stations_list())
-
-
-@app.route('/api/stations', methods=['POST'])
-@login_required
-@roles_required('admin')
-def api_add_station():
-    d = request.json
-    level = d.get('level')
-    if level not in CATEGORIES:
-        return jsonify({'ok': False, 'error': 'Level must be PC or Laptop'})
-    with get_db() as conn:
-        mx = conn.execute('SELECT COALESCE(MAX(number),0) m FROM stations WHERE level=?', (level,)).fetchone()['m']
-        num = mx + 1
-        conn.execute('INSERT INTO stations (number, level, label) VALUES (?,?,?)',
-                     (num, level, f'{level} Station {num}'))
-    broadcast_all()
-    return jsonify({'ok': True, 'stations': get_stations_list()})
-
-
-@app.route('/api/stations/<int:station_id>', methods=['DELETE'])
-@login_required
-@roles_required('admin')
-def api_delete_station(station_id):
-    with get_db() as conn:
-        conn.execute('DELETE FROM stations WHERE id=?', (station_id,))
-    broadcast_all()
-    return jsonify({'ok': True, 'stations': get_stations_list()})
 
 
 # ── Leaderboard / projector data ────────────────────────────────────────────
@@ -868,4 +839,4 @@ def api_meta():
 
 
 if __name__ == '__main__':
-    socketio.run(app, host='0.0.0.0', port=5000, debug=True, allow_unsafe_werkzeug=True)
+    socketio.run(app, host='0.0.0.0', port=5001, debug=True, allow_unsafe_werkzeug=True)

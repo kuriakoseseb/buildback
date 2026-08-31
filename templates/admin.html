@@ -6,77 +6,109 @@
 <title>Build Back — Admin</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
 <style>
-  :root{--bg:#0f0f13;--surface:#1a1a24;--surface2:#22222f;--border:#2e2e40;--accent:#6c63ff;
-    --green:#00e676;--yellow:#ffd740;--red:#ff5252;--text:#e8e8f0;--muted:#7a7a9a;
-    --pc:#4fc3f7;--laptop:#ce93d8;--gold:#ffd700;}
+  :root{--bg:#06070b;--ink:#f2f4f7;--muted:#96a0ad;--border:rgba(255,255,255,.12);--accent:#fff;--accent2:#7c8694;
+    --glass:rgba(255,255,255,.05);--glass2:rgba(255,255,255,.09);}
   *{box-sizing:border-box;margin:0;padding:0;}
-  body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;}
-  header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;
-    display:flex;align-items:center;justify-content:space-between;}
-  header h1{font-size:1.25rem;letter-spacing:2px;text-transform:uppercase;}
-  header h1 span{color:var(--accent);}
-  .nav{display:flex;gap:10px;align-items:center;}
-  .nav-link{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:8px 14px;border-radius:6px;text-decoration:none;font-size:0.82rem;}
-  .nav-link:hover{border-color:var(--accent);}
-  .nav-link.proj{background:#6c63ff20;color:var(--accent);border-color:#6c63ff60;}
+  body{background:radial-gradient(1100px at 20% 0%,rgba(255,255,255,.07),transparent 55%),var(--bg);
+    color:var(--ink);font-family:'Inter',system-ui,sans-serif;min-height:100vh;overflow-x:hidden;}
+  body::before{content:"";position:fixed;inset:-25%;z-index:-2;
+    background:radial-gradient(720px at 18% 20%,rgba(255,255,255,.09),transparent 60%),
+      radial-gradient(640px at 86% 12%,rgba(180,190,210,.07),transparent 60%),
+      radial-gradient(700px at 75% 85%,rgba(255,255,255,.06),transparent 60%);
+    animation:aurora 18s ease-in-out infinite alternate;pointer-events:none;}
+  @keyframes aurora{0%{transform:translate(0,0) rotate(0deg);}100%{transform:translate(3%,-2%) rotate(3deg);}}
+  @keyframes rise{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:none;}}
 
-  .tabs{display:flex;gap:6px;background:var(--surface);padding:0 16px;border-bottom:1px solid var(--border);}
-  .tab{padding:14px 22px;font-size:0.85rem;font-weight:600;letter-spacing:1px;text-transform:uppercase;cursor:pointer;
-    border:none;background:transparent;color:var(--muted);border-bottom:3px solid transparent;}
-  .tab.active{color:var(--accent);border-bottom-color:var(--accent);}
-  .tab .badge{background:var(--red);color:#fff;border-radius:10px;padding:1px 7px;font-size:0.7rem;margin-left:6px;}
+  header{background:rgba(255,255,255,.05);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+    border-bottom:1px solid var(--border);padding:12px 22px;position:sticky;top:0;z-index:50;
+    display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  header h1{font-size:1.1rem;letter-spacing:2px;text-transform:uppercase;font-weight:800;
+    background:linear-gradient(90deg,#fff,#8a93a1);-webkit-background-clip:text;background-clip:text;color:transparent;}
+  .nav{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+  .nav-link{background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--ink);padding:7px 12px;
+    border-radius:10px;text-decoration:none;font-size:.78rem;transition:all .25s;cursor:pointer;font-family:inherit;}
+  .nav-link:hover{border-color:rgba(255,255,255,.45);color:#fff;transform:translateY(-1px);}
+  .nav-link.proj{border-color:rgba(255,255,255,.4);}
 
-  .content{padding:24px;}
-  .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:20px;}
-  .card h3{font-size:0.85rem;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);margin-bottom:14px;}
-  .reg{display:flex;align-items:center;justify-content:space-between;gap:14px;background:var(--surface2);border:1px solid var(--border);
-    border-radius:10px;padding:14px 16px;margin-bottom:10px;flex-wrap:wrap;}
-  .reg .who{flex:1;min-width:220px;}
+  .tabs{display:flex;gap:4px;background:rgba(5,6,10,.6);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    padding:0 14px;border-bottom:1px solid var(--border);position:sticky;top:58px;z-index:40;}
+  .tab{padding:14px 24px;font-size:.86rem;font-weight:600;letter-spacing:1px;text-transform:uppercase;cursor:pointer;
+    border:none;background:transparent;color:var(--muted);border-bottom:3px solid transparent;transition:all .25s;font-family:'Inter',sans-serif;}
+  .tab:hover{color:#fff;}
+  .tab.active{color:#fff;border-bottom-color:var(--accent);text-shadow:0 0 12px rgba(255,255,255,.4);}
+  .tab .badge{background:linear-gradient(135deg,#fff,#b9c0cb);color:#0a0c12;border-radius:10px;padding:1px 7px;font-size:.7rem;margin-left:6px;box-shadow:0 2px 8px rgba(255,255,255,.3);animation:pulse 1.6s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.6;}}
+
+  .content{padding:24px;max-width:1500px;margin:0 auto;animation:rise .5s both;}
+  .card{background:var(--glass);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid var(--border);
+    border-radius:16px;padding:22px;margin-bottom:20px;box-shadow:0 18px 50px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.08);}
+  .card h3{font-size:.74rem;text-transform:uppercase;letter-spacing:2px;color:#fff;margin-bottom:14px;font-weight:700;}
+  .reg{display:flex;align-items:center;justify-content:space-between;gap:14px;background:rgba(255,255,255,.05);border:1px solid var(--border);
+    border-radius:13px;padding:14px 16px;margin-bottom:10px;flex-wrap:wrap;transition:all .25s;animation:rise .4s both;}
+  .reg:hover{border-color:rgba(255,255,255,.35);transform:translateY(-2px);box-shadow:0 8px 24px rgba(255,255,255,.08);}
+  .reg .who{flex:1;min-width:240px;}
   .reg .who .nm{font-weight:600;}
-  .reg .who .det{font-size:0.78rem;color:var(--muted);margin-top:2px;}
-  .reg .team-note{font-size:0.8rem;color:var(--laptop);margin-top:4px;}
+  .reg .who .det{font-size:.78rem;color:var(--muted);margin-top:2px;}
+  .reg .team-note{font-size:.8rem;color:#fff;margin-top:4px;}
   .reg-actions{display:flex;gap:8px;}
-  .btn{padding:9px 16px;border:none;border-radius:6px;font-weight:700;font-size:0.8rem;cursor:pointer;transition:opacity .2s;}
+  .btn{padding:9px 16px;border:none;border-radius:9px;font-weight:700;font-size:.8rem;cursor:pointer;transition:all .25s;font-family:inherit;}
+  .role-sel{background:rgba(8,9,12,.6);border:1px solid var(--border);color:var(--ink);padding:7px 10px;border-radius:9px;
+    font-size:.8rem;outline:none;cursor:pointer;font-family:inherit;}
+  .role-sel:hover{border-color:rgba(255,255,255,.5);}
+  .btn:hover{transform:translateY(-2px);}
   .btn:active{transform:scale(.96);}
-  .btn-green{background:var(--green);color:#000;}
-  .btn-red{background:var(--red);color:#fff;}
-  .btn-ghost{background:var(--surface2);color:var(--text);border:1px solid var(--border);}
-  .btn-accent{background:var(--accent);color:#fff;}
+  .btn-green{background:linear-gradient(135deg,#fff,#c3c9d2);color:#0a0c12;box-shadow:0 6px 18px rgba(255,255,255,.2);}
+  .btn-red{background:linear-gradient(135deg,#565a63,#26282e);color:#f2f4f7;box-shadow:0 6px 18px rgba(0,0,0,.4);}
+  .btn-ghost{background:rgba(255,255,255,.06);color:var(--ink);border:1px solid var(--border);}
+  .btn-ghost:hover{border-color:rgba(255,255,255,.5);background:rgba(255,255,255,.12);}
+  .btn-accent{background:linear-gradient(135deg,#fff,#b9c0cb);color:#0a0c12;box-shadow:0 6px 18px rgba(255,255,255,.2);}
 
-  .tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:0.68rem;font-weight:700;text-transform:uppercase;}
-  .tag-pc{background:#4fc3f720;color:var(--pc);border:1px solid #4fc3f740;}
-  .tag-laptop{background:#ce93d820;color:var(--laptop);border:1px solid #ce93d840;}
-  .tag-team{background:#ff658420;color:#ff6584;border:1px solid #ff658440;}
-  .tag-running{background:#00e67620;color:var(--green);border:1px solid #00e67640;}
+  .tag{display:inline-block;padding:2px 8px;border-radius:6px;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;}
+  .tag-pc{border:1px solid rgba(255,255,255,.45);color:#fff;}
+  .tag-laptop{border:1px solid rgba(255,255,255,.45);color:#fff;}
+  .tag-team{border:1px solid rgba(255,255,255,.6);background:rgba(255,255,255,.14);color:#fff;}
+  .tag-running{border:1px solid var(--accent);color:#fff;background:rgba(255,255,255,.16);animation:pulse 1.4s infinite;}
+  .tag-red{border:1px solid rgba(255,255,255,.5);color:#fff;}
 
-  .waiting-note{color:var(--muted);font-size:0.82rem;}
-  .empty{color:var(--muted);text-align:center;padding:18px;font-size:0.85rem;}
+  .waiting-note{color:var(--muted);font-size:.82rem;}
+  .empty{color:var(--muted);text-align:center;padding:18px;font-size:.85rem;}
 
   table{width:100%;border-collapse:collapse;}
-  th{text-align:left;padding:8px 12px;font-size:0.68rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted);border-bottom:1px solid var(--border);}
-  td{padding:10px 12px;border-bottom:1px solid var(--border);font-size:0.85rem;}
+  th{text-align:left;padding:8px 12px;font-size:.68rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted);border-bottom:1px solid var(--border);}
+  td{padding:10px 12px;border-bottom:1px solid var(--border);font-size:.85rem;}
+  tbody tr{transition:background .2s;}
+  tbody tr:hover{background:rgba(255,255,255,.05);}
   tr:last-child td{border-bottom:none;}
-  .mono{font-family:monospace;}
+  .mono{font-family:ui-monospace,monospace;}
   .pen-cfg{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;}
   .pen-cfg .field{display:flex;flex-direction:column;gap:5px;}
-  .pen-cfg label{font-size:0.75rem;color:var(--muted);}
-  .pen-cfg input{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:6px;font-size:0.85rem;}
-  input:focus{outline:none;border-color:var(--accent);}
+  .pen-cfg label{font-size:.75rem;color:var(--muted);}
+  .pen-cfg input{background:rgba(8,9,12,.6);border:1px solid var(--border);color:var(--ink);padding:9px 11px;border-radius:9px;font-size:.85rem;transition:all .2s;outline:none;}
+  .pen-cfg input:focus{border-color:rgba(255,255,255,.5);box-shadow:0 0 0 3px rgba(255,255,255,.1);}
 
-  .staff-row{display:flex;justify-content:space-between;align-items:center;padding:8px 2px;border-bottom:1px solid var(--border);font-size:0.85rem;}
-  .toast{position:fixed;bottom:24px;right:24px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px 20px;font-size:0.85rem;transform:translateY(120px);opacity:0;transition:all .3s;z-index:200;}
-  .toast.show{transform:translateY(0);opacity:1;}
-  .toast.success{border-color:var(--green);color:var(--green);}
-  .toast.error{border-color:var(--red);color:var(--red);}
+  .staff-row{display:flex;justify-content:space-between;align-items:center;padding:8px 2px;border-bottom:1px solid var(--border);font-size:.85rem;}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(120px);background:rgba(255,255,255,.1);
+    backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid var(--border);border-radius:12px;padding:13px 22px;
+    font-size:.85rem;opacity:0;transition:all .35s;z-index:200;box-shadow:0 14px 40px rgba(0,0,0,.5);}
+  .toast.show{transform:translateX(-50%) translateY(0);opacity:1;}
+  .toast.success{border-color:rgba(255,255,255,.55);color:#fff;}
+  .toast.error{border-color:rgba(255,255,255,.55);color:#fff;}
+
+  @media (max-width:860px){
+    header{padding:10px 14px;}
+    .tabs{padding:0 8px;top:54px;overflow-x:auto;}
+    .tab{padding:13px 14px;font-size:.78rem;white-space:nowrap;}
+    .content{padding:16px 14px;}
+  }
 </style>
 </head>
 <body>
 <header>
-  <h1>BUILD <span>BACK</span> — Admin</h1>
+  <h1>BUILD BACK — Admin</h1>
   <div class="nav">
-    <a href="/competitors" target="_blank" class="nav-link">➕ Competitor</a>
-    <a href="/projector" target="_blank" class="nav-link proj">📊 Projector</a>
-    <a href="/volunteer" target="_blank" class="nav-link">🔧 Station</a>
+    <a href="/competitors" class="nav-link">➕ Competitor</a>
+    <a href="/projector" class="nav-link proj">📊 Projector</a>
+    <a href="/volunteer" class="nav-link">🔧 Station</a>
     <button class="nav-link" style="border:none;cursor:pointer" onclick="logout()">Logout</button>
   </div>
 </header>
@@ -85,7 +117,6 @@
   <button class="tab active" id="tab-regs" onclick="setTab('regs')">Registrations<span class="badge" id="reg-badge" style="display:none"></span></button>
   <button class="tab" id="tab-parts" onclick="setTab('parts')">All Participants</button>
   <button class="tab" id="tab-staff" onclick="setTab('staff')">Staff<span class="badge" id="staff-badge" style="display:none"></span></button>
-  <button class="tab" id="tab-stations" onclick="setTab('stations')">Stations</button>
   <button class="tab" id="tab-cfg" onclick="setTab('cfg')">Penalty Config</button>
 </div>
 
@@ -95,54 +126,21 @@
 <script>
 const socket=io();
 let pending=[];
-let stations=[];
 const IS_ADMIN = {{ 'true' if is_admin else 'false' }};
 
 socket.on('leaderboard_update',loadAll);
 socket.on('stations_update',loadAll);
 socket.on('projector_update',loadAll);
 
-async function loadAll(){ await Promise.all([loadRegs(),loadParts(),loadStaff(),loadStations()]); }
+async function loadAll(){ await Promise.all([loadRegs(),loadParts(),loadStaff()]); }
 function setTab(t){
   document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
   document.getElementById('tab-'+t).classList.add('active');
-  if(t==='regs')renderRegs(); else if(t==='parts')renderParts(); else if(t==='staff')renderStaff(); else if(t==='stations')renderStations(); else renderCfg();
-}
-async function loadStations(){
-  const r=await fetch('/api/stations'); stations=await r.json();
-  if(document.getElementById('tab-stations').classList.contains('active'))renderStations();
-}
-function renderStations(){
-  const el=document.getElementById('content');
-  const pc=stations.filter(s=>s.level==='PC'), lp=stations.filter(s=>s.level==='Laptop');
-  const row=(s)=>({pc:(...a)=>`<div class="station-row">
-      <div><span class="tag tag-pc">PC</span> Station ${s.number} <span style="color:var(--muted);font-size:.8rem">${s.volunteer_label?'· '+s.volunteer_label:''}</span></div>
-      <button class="btn btn-red" onclick="delStation(${s.id})">Delete</button></div>`,
-    Laptop:(...a)=>`<div class="station-row">
-      <div><span class="tag" style="color:var(--laptop);border-color:var(--laptop)">Laptop</span> Station ${s.number} <span style="color:var(--muted);font-size:.8rem">${s.volunteer_label?'· '+s.volunteer_label:''}</span></div>
-      <button class="btn btn-red" onclick="delStation(${s.id})">Delete</button></div>`})[s.level];
-
-  el.innerHTML=`<div class="card"><h3>PC Stations (${pc.length})</h3>${pc.map(row).join('')||'<div class="empty">None</div>'}</div>
-    <div class="card"><h3>Laptop Stations (${lp.length})</h3>${lp.map(row).join('')||'<div class="empty">None</div>'}</div>
-    ${IS_ADMIN?`<div class="card"><h3>Add Station</h3>
-      <select id="st-level" style="width:200px;margin-right:10px">
-        <option value="PC">PC Station</option><option value="Laptop">Laptop Station</option>
-      </select>
-      <button class="btn btn-accent" style="width:200px" onclick="addStation()">Add Station</button></div>`:''}`;
-}
-async function addStation(){
-  const r=await fetch('/api/stations',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({level:document.getElementById('st-level').value})});
-  const d=await r.json();
-  showToast(d.ok?'Station added':(d.error||'Error'), d.ok?'success':'error');
-  if(d.ok) renderStations();
-}
-async function delStation(id){
-  if(!confirm('Delete this station?'))return;
-  await fetch('/api/stations/'+id,{method:'DELETE'}); renderStations();
+  localStorage.setItem('adminTab',t);
+  if(t==='regs')renderRegs(); else if(t==='parts')renderParts(); else if(t==='staff')renderStaff(); else renderCfg();
 }
 async function loadRegs(){
-  const r=await fetch('/api/registrations'); pending=r.json(); 
+  const r=await fetch('/api/registrations'); pending=r.json();
   if(document.getElementById('tab-regs').classList.contains('active'))renderRegs();
   const b=document.getElementById('reg-badge'); const n=pending.filter(x=>!x.approved).length;
   b.style.display=n?'inline-block':'none'; b.textContent=n;
@@ -159,7 +157,7 @@ function renderRegs(){
         ${r.play_mode==='team'&&r.students[1]?`<div class="team-note">👥 Mate: ${esc(r.students[1].name)} — ${esc(r.students[1].department)} · Sem ${esc(r.students[1].semester)} · ${esc(r.students[1].college)}</div>`:''}
       </div>
       <div class="reg-actions">
-        ${r.approved?'<span class="tag tag-pc" style="border-color:var(--green);color:var(--green)">Approved</span>':
+        ${r.approved?'<span class="tag tag-pc" style="border-color:#fff;color:#fff">Approved</span>':
           `<button class="btn btn-green" onclick="approveReg(${r.id})">✓ Approve</button>
            <button class="btn btn-red" onclick="rejectReg(${r.id})">✕ Reject</button>`}
       </div>
@@ -167,8 +165,8 @@ function renderRegs(){
   el.innerHTML=`<div class="card"><h3>Pending Approval (${un.length})</h3>${un.length?un.map(px).join(''):'<div class="empty">Nothing pending</div>'}</div>
     ${ap.length?`<div class="card"><h3>Approved (${ap.length})</h3>${ap.map(px).join('')}</div>`:''}`;
 }
-async function approveReg(id){ await fetch('/api/registrations/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({participant_id:id})}); showToast('Approved','success'); }
-async function rejectReg(id){ await fetch('/api/registrations/reject',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({participant_id:id})}); showToast('Rejected'); }
+async function approveReg(id){ await fetch('/api/registrations/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({participant_id:id})}); showToast('Approved','success'); loadRegs(); }
+async function rejectReg(id){ await fetch('/api/registrations/reject',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({participant_id:id})}); showToast('Rejected'); loadRegs(); }
 
 let parts=[];
 async function loadParts(){ const r=await fetch('/api/participants/list'); parts=await r.json(); if(document.getElementById('tab-parts').classList.contains('active'))renderParts(); }
@@ -178,8 +176,8 @@ function renderParts(){
   const rows=parts.map(p=>{ const mr=[]; for(const c of ['PC','Laptop']){ const r=p.runs.find(x=>x.category===c);
     let st='<span class="tag tag-pc">waiting</span>';
     if(r.status==='running')st='<span class="tag tag-running">running</span>';
-    else if(r.status==='finished'&&!r.disqualified)st=`<span class="mono" style="color:var(--green)">${fmt(r.final_seconds)}</span>`;
-    else if(r.disqualified)st='<span class="tag tag-red" style="color:var(--red);border-color:var(--red)">DQ</span>';
+    else if(r.status==='finished'&&!r.disqualified)st=`<span class="mono" style="color:#fff">${fmt(r.final_seconds)}</span>`;
+    else if(r.disqualified)st='<span class="tag tag-red" style="color:#fff;border-color:#fff">DQ</span>';
     mr.push(`${c}: ${st}`); }
     // combined
     const pc=p.runs.find(x=>x.category==='PC'), lp=p.runs.find(x=>x.category==='Laptop');
@@ -202,36 +200,28 @@ async function loadStaff(){
 function renderStaff(){
   const el=document.getElementById('content');
   const staffRow=(u)=>`<div class="staff-row">
-    <div><b>${esc(u.display_name||u.username)}</b> <span class="tag tag-pc" style="${u.role==='admin'?'color:var(--accent);border-color:var(--accent);':''}">${u.role}</span>
+    <div><b>${esc(u.display_name||u.username)}</b> <span class="tag tag-pc" style="${u.role==='admin'?'color:#fff;border-color:#fff;':''}">${u.role}</span>
       <span style="color:var(--muted);font-size:0.75rem"> @ ${esc(u.station||'—')}</span></div>
-    <div style="display:flex;gap:8px">
+    <div style="display:flex;gap:8px;align-items:center">
       ${u.approved?'':'<button class="btn btn-green" onclick="approveStaff('+u.id+')">Approve</button>'}
+      ${IS_ADMIN&&u.approved?`<select class="role-sel" onchange="setRole(${u.id},this.value)">
+          ${['volunteer','super','admin'].map(r=>`<option value="${r}" ${u.role===r?'selected':''}>${r}</option>`).join('')}
+        </select>`:''}
       <button class="btn btn-red" onclick="delStaff('+u.id+')">Delete</button>
     </div></div>`;
   el.innerHTML=`<div class="card"><h3>Pending Staff (${staff.pending.length})</h3>${staff.pending.length?staff.pending.map(staffRow).join(''):'<div class="empty">None</div>'}</div>
-    <div class="card"><h3>Active Staff (${staff.all.length})</h3>${staff.all.map(staffRow).join('')}</div>
-    ${IS_ADMIN?`<div class="card"><h3>Create Admin / Super</h3>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-        <div class="field"><label>Role</label>
-          <select id="cs-role"><option value="super">Super</option><option value="admin">Admin</option></select></div>
-        <div class="field"><label>Display Name</label><input id="cs-name" placeholder="Name"></div>
-        <div class="field"><label>Username</label><input id="cs-user" placeholder="username"></div>
-        <div class="field"><label>Password</label><input id="cs-pass" placeholder="password"></div>
-      </div>
-      <button class="btn btn-accent" style="margin-top:14px" onclick="createStaff()">Create Staff Account</button></div>`:''}`;
+    <div class="card"><h3>Active Staff (${staff.all.length})</h3>
+      <div class="empty" style="padding:8px 0 14px;font-size:.78rem">Assign any role to an active account — role changes take effect on their next load.</div>
+      ${staff.all.map(staffRow).join('')||'<div class="empty">None</div>'}</div>`;
 }
-async function createStaff(){
-  if(!confirm('Create this staff account?'))return;
-  const r=await fetch('/api/auth/create-staff',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({username:document.getElementById('cs-user').value.trim(),
-      password:document.getElementById('cs-pass').value,role:document.getElementById('cs-role').value,
-      display_name:document.getElementById('cs-name').value.trim()})});
+async function setRole(uid,role){
+  const r=await fetch('/api/staff/role',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({uid,role})});
   const d=await r.json();
-  showToast(d.ok?d.msg:(d.error||'Error'), d.ok?'success':'error');
-  if(d.ok){['cs-name','cs-user','cs-pass'].forEach(id=>document.getElementById(id).value='');}
+  showToast(d.ok?('Role → '+role):(d.error||'Error'), d.ok?'success':'error');
+  loadStaff();
 }
-async function approveStaff(uid){ await fetch('/api/staff/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({uid})}); showToast('Staff approved','success'); }
-async function delStaff(uid){ if(!confirm('Delete staff account?'))return; await fetch('/api/staff/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({uid})}); showToast('Deleted'); }
+async function approveStaff(uid){ const r=await fetch('/api/staff/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({uid})}); const d=await r.json(); showToast(d.ok?'Staff approved':(d.error||'Error'), d.ok?'success':'error'); loadStaff(); }
+async function delStaff(uid){ if(!confirm('Delete staff account?'))return; const r=await fetch('/api/staff/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({uid})}); const d=await r.json(); showToast(d.ok?'Deleted':(d.error||'Error'), d.ok?'success':'error'); loadStaff(); }
 
 let cfg=[];
 async function renderCfg(){
@@ -261,6 +251,8 @@ function esc(s){ return (s||'').toString().replace(/[&<>"]/g,c=>({'&':'&amp;','<
 const toast=document.getElementById('toast');
 function showToast(m,t='success'){ toast.textContent=m; toast.className=`toast show ${t}`; setTimeout(()=>toast.className='toast',2400); }
 
+const savedTab=localStorage.getItem('adminTab');
+if(savedTab && document.getElementById('tab-'+savedTab)) setTab(savedTab);
 loadAll();
 </script>
 </body>

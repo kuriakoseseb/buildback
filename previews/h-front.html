@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Build Back — Sign In</title>
+<title>Build Back — Front Page Preview</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root{--bg:#06070b;--ink:#f2f4f7;--muted:#96a0ad;--border:rgba(255,255,255,.12);--accent:#fff;--accent2:#7c8694;}
@@ -12,12 +12,16 @@
     color:var(--ink);font-family:'Inter',system-ui,sans-serif;min-height:100vh;overflow:hidden;
     display:flex;align-items:center;justify-content:center;perspective:1200px;}
 
+  /* ambient monochrome aurora */
   .blob{position:fixed;border-radius:50%;filter:blur(110px);opacity:.35;pointer-events:none;animation:float 18s ease-in-out infinite;}
   .b1{width:46vw;height:46vw;background:rgba(255,255,255,.22);top:-12%;left:-8%;}
   .b2{width:38vw;height:38vw;background:rgba(180,190,210,.2);bottom:-14%;right:-6%;animation-delay:-6s;}
   .b3{width:26vw;height:26vw;background:rgba(210,214,225,.16);top:30%;right:16%;animation-delay:-12s;}
   @keyframes float{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(4%,3%) scale(1.12)}}
 
+  /* mono, no trailing grid */
+
+  /* orbiting gradient ring behind card */
   .ring{position:fixed;width:520px;height:520px;pointer-events:none;animation:spin 26s linear infinite;}
   .ring::before,.ring::after{content:"";position:absolute;inset:0;border-radius:50%;}
   .ring::before{border:1px dashed rgba(255,255,255,.14);}
@@ -27,19 +31,21 @@
     animation:spin 10s linear infinite reverse;}
   @keyframes spin{to{transform:rotate(360deg)}}
 
-  .stage{position:relative;z-index:2;display:flex;align-items:center;gap:64px;width:min(1080px,94vw);}
+  .stage{position:relative;z-index:2;display:flex;align-items:center;gap:64px;width:min(980px,92vw);}
   .stage>*{opacity:0;}
   .stage>*::after{content:"";position:absolute;inset:-160px;z-index:-1;border-radius:32px;
     background:radial-gradient(closest-side,rgba(255,255,255,.06),transparent);}
 
-  .brand{flex:1.1;animation:rise .8s .15s both cubic-bezier(.2,.8,.25,1);position:relative;}
+  /* left: brand + animated taglines */
+  .brand{flex:1.15;animation:rise .8s .15s both cubic-bezier(.2,.8,.25,1);position:relative;}
   .brand .logo{display:flex;align-items:center;gap:14px;margin-bottom:26px;}
   .logo .mark{width:46px;height:46px;border-radius:12px;background:linear-gradient(135deg,#fff,#7c8694);
     display:grid;place-items:center;font-size:1.3rem;color:#0a0c12;font-weight:800;box-shadow:0 10px 26px rgba(255,255,255,.18);
     animation:pop .7s .1s both cubic-bezier(.3,1.6,.4,1);}
   .logo .word{font-size:1.3rem;letter-spacing:3px;text-transform:uppercase;font-weight:800;
     background:linear-gradient(90deg,#fff,#8a93a1);-webkit-background-clip:text;background-clip:text;color:transparent;}
-  .brand h2{font-size:2.7rem;line-height:1.06;font-weight:800;margin-bottom:14px;animation:grad 4s ease-in-out infinite alternate;}
+  .brand h2{font-size:2.7rem;line-height:1.06;font-weight:800;margin-bottom:14px;
+    animation:grad 4s ease-in-out infinite alternate;}
   @keyframes grad{0%{background-position:0% 50%}100%{background-position:100% 50%}}
   .brand .head-gradient{background:linear-gradient(90deg,#fff,#7c8694,#fff);background-size:200% 100%;
     -webkit-background-clip:text;background-clip:text;color:transparent;}
@@ -54,44 +60,33 @@
   .stat .l{font-size:.72rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-top:2px;}
   .stat .n i{font-style:normal;color:var(--accent2);}
 
-  .card{flex:.8;background:rgba(255,255,255,.045);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);
-    border:1px solid var(--border);border-radius:20px;padding:34px 32px;
+  /* right: login card */
+  .card{flex:.85;background:rgba(255,255,255,.045);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);
+    border:1px solid var(--border);border-radius:20px;padding:38px 34px;
     box-shadow:0 30px 80px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.09);
     animation:rise .8s .35s both cubic-bezier(.2,.8,.25,1);position:relative;}
-  .tabs{display:flex;gap:6px;margin-bottom:24px;background:rgba(0,0,0,.3);padding:5px;border-radius:14px;}
-  .tab{flex:1;padding:12px;border-radius:10px;border:none;background:transparent;color:var(--muted);font-weight:600;cursor:pointer;
-    font-size:.84rem;letter-spacing:.5px;transition:all .25s;font-family:'Inter',sans-serif;}
-  .tab:hover{color:var(--ink);}
-  .tab.active{background:linear-gradient(135deg,#fff,#b9c0cb);color:#0a0c12;box-shadow:0 4px 18px rgba(255,255,255,.25);}
   .card h3{font-size:1.25rem;font-weight:700;margin-bottom:4px;}
-  .card .sub{color:var(--muted);font-size:.85rem;margin-bottom:24px;}
-  .field{display:flex;flex-direction:column;gap:8px;margin-bottom:16px;}
+  .card .sub{color:var(--muted);font-size:.85rem;margin-bottom:26px;}
+  .field{display:flex;flex-direction:column;gap:8px;margin-bottom:18px;}
   .field label{font-size:.72rem;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--muted);}
   .field input{background:#0a0c13;border:1px solid var(--border);border-radius:11px;color:#fff;padding:13px 15px;font-size:.95rem;
     outline:none;font-family:'Inter',sans-serif;transition:all .25s;width:100%;}
   .field input::placeholder{color:#4d5563;}
   .field input:focus{border-color:rgba(255,255,255,.5);box-shadow:0 0 0 4px rgba(255,255,255,.08);}
+  .card .extra{display:flex;align-items:center;justify-content:space-between;margin:4px 0 22px;font-size:.8rem;}
+  .card .extra a{color:var(--accent2);text-decoration:none;}
+  .card .extra a:hover{color:#fff;}
+  .card .extra label input{margin-right:7px;}
 
   .btn{position:relative;width:100%;padding:14px;border:none;border-radius:11px;font-size:.95rem;font-weight:700;cursor:pointer;
     background:linear-gradient(135deg,#fff,#b9c0cb);color:#0a0c12;overflow:hidden;
-    box-shadow:0 10px 30px rgba(255,255,255,.14);transition:transform .2s,box-shadow .2s;font-family:'Inter',sans-serif;}
+    box-shadow:0 10px 30px rgba(255,255,255,.14);transition:transform .2s,box-shadow .2s;}
   .btn:hover{transform:translateY(-2px);box-shadow:0 16px 40px rgba(255,255,255,.22);}
   .btn:active{transform:translateY(0);}
-  .btn.ghost{background:rgba(255,255,255,.06);color:var(--ink);border:1px solid var(--border);box-shadow:none;}
-  .btn.ghost:hover{border-color:rgba(255,255,255,.4);box-shadow:none;}
   .btn::after{content:"";position:absolute;top:0;left:-70%;width:45%;height:100%;
-    background:linear-gradient(105deg,transparent,rgba(10,12,18,.32),transparent);animation:sheen 3.2s ease-in-out infinite;}
-  .btn.ghost::after{display:none;}
+    background:linear-gradient(105deg,transparent,rgba(10,12,18,.32),transparent);
+    animation:sheen 3.2s ease-in-out infinite;}
   @keyframes sheen{0%,55%{left:-70%}85%,100%{left:125%}}
-
-  .extra{display:flex;align-items:center;justify-content:space-between;margin:4px 0 20px;font-size:.8rem;}
-  .extra a{color:var(--accent2);text-decoration:none;}
-  .extra a:hover{color:#fff;}
-
-  .msg{display:none;padding:12px 15px;border-radius:10px;font-size:.85rem;margin-top:14px;animation:rise .3s both;}
-  .msg.err{display:block;background:rgba(255,255,255,.06);color:#f2f4f7;border:1px solid rgba(255,255,255,.35);}
-  .msg.ok{display:block;background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.4);}
-  .note{font-size:.72rem;color:var(--muted);margin-top:10px;line-height:1.5;}
   .card .signup{text-align:center;margin-top:20px;color:var(--muted);font-size:.85rem;}
   .card .signup a{color:#fff;text-decoration:none;font-weight:600;}
 
@@ -104,16 +99,16 @@
     .b1{width:90vw;height:90vw;top:-14%;left:-20%;}
     .b2{width:80vw;height:80vw;bottom:-18%;right:-16%;}
     .b3{width:60vw;height:60vw;top:24%;right:6%;}
-    .stage{flex-direction:column;gap:28px;padding:34px 0 48px;align-items:stretch;width:min(520px,94vw);}
+    .stage{flex-direction:column;gap:30px;padding:36px 0 48px;align-items:stretch;}
     .brand h2{font-size:2rem;}
     .rot{height:1.7rem;}
     .rot li{font-size:1.25rem;line-height:1.7rem;height:1.7rem;}
     @keyframes rot{0%,28%{transform:translateY(0)}33%,61%{transform:translateY(-1.7rem)}66%,94%{transform:translateY(-3.4rem)}100%{transform:translateY(0)}}
     .stats{gap:22px;}
     .stat .n{font-size:1.4rem;}
-    .brand p{max-width:none;}
-    .card{padding:26px 20px;}
+    .card{padding:28px 22px;}
     .card h3{font-size:1.1rem;}
+    .brand::after,.card::after{display:none;}
   }
   @media (max-width:420px){
     .brand h2{font-size:1.7rem;}
@@ -139,7 +134,7 @@
           <li>Finish it.</li>
         </ul>
       </div>
-      <p>Level the challenge across two build categories, race the clock, and climb a live
+      <p>Level the challenge across two build categories, race the clock on the projector, and climb a live
       combined leaderboard. Pick a station, start your build, fight the timer.</p>
       <div class="stats">
         <div class="stat"><div class="n">02<i>.</i></div><div class="l">Levels</div></div>
@@ -149,60 +144,17 @@
     </section>
 
     <section class="card">
-      <div class="tabs">
-        <button class="tab active" id="tab-login" onclick="setTab('login')">Login</button>
-        <button class="tab" id="tab-reg" onclick="setTab('reg')">Volunteer Register</button>
+      <h3>Welcome back</h3>
+      <div class="sub">Sign in to the build floor.</div>
+      <div class="field"><label>Username</label><input placeholder="you@buildback" autocomplete="off"></div>
+      <div class="field"><label>Password</label><input type="password" placeholder="••••••••"></div>
+      <div class="extra">
+        <label><input type="checkbox"> Keep me signed in</label>
+        <a href="javascript:;">Forgot password?</a>
       </div>
-
-      <div id="panel-login">
-        <h3>Welcome back</h3>
-        <div class="sub">Sign in to the build floor.</div>
-        <div class="field"><label>Username</label><input type="text" id="login-user" placeholder="you@buildback" autocomplete="off"></div>
-        <div class="field"><label>Password</label><input type="password" id="login-pass" placeholder="••••••••"></div>
-        <button class="btn" onclick="staffLogin()">Continue →</button>
-        <div class="msg" id="login-msg"></div>
-        <div class="signup">New volunteer? <a href="javascript:;" onclick="setTab('reg');return false;">Create an account</a></div>
-      </div>
-
-      <div id="panel-reg" style="display:none">
-        <h3>Join the floor</h3>
-        <div class="sub">Volunteer accounts need admin approval.</div>
-        <div class="field"><label>Display name</label><input type="text" id="rg-name" placeholder="Your name"></div>
-        <div class="field"><label>Username (3+ chars)</label><input type="text" id="rg-user" placeholder="username"></div>
-        <div class="field"><label>Password (4+ chars)</label><input type="password" id="rg-pass" placeholder="password"></div>
-        <button class="btn ghost" onclick="registerVolunteer()">Register as Volunteer</button>
-        <div class="msg" id="reg-msg"></div>
-        <div class="note">Registration happens once you're approved. Competitors are added after login.</div>
-      </div>
+      <button class="btn">Continue →</button>
+      <div class="signup">New volunteer? <a href="javascript:;">Create an account</a></div>
     </section>
   </div>
-
-<script>
-function setTab(t){
-  document.getElementById('tab-login').className='tab'+(t==='login'?' active':'');
-  document.getElementById('tab-reg').className='tab'+(t==='reg'?' active':'');
-  document.getElementById('panel-login').style.display=t==='login'?'block':'none';
-  document.getElementById('panel-reg').style.display=t==='reg'?'block':'none';
-}
-function byId(id){return document.getElementById(id);}
-
-async function staffLogin(){
-  const msg=byId('login-msg'); msg.className='msg err';
-  const res=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({username:byId('login-user').value.trim(),password:byId('login-pass').value})});
-  const d=await res.json();
-  if(d.ok){ window.location.href='/'; } else { msg.textContent=d.error||'Login failed'; }
-}
-
-async function registerVolunteer(){
-  const msg=byId('reg-msg'); msg.className='msg err';
-  const res=await fetch('/api/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({username:byId('rg-user').value.trim(),password:byId('rg-pass').value,
-      display_name:byId('rg-name').value.trim()})});
-  const d=await res.json();
-  if(d.ok){ msg.className='msg ok'; msg.textContent='Registered — awaiting approval.'; }
-  else { msg.className='msg err'; msg.textContent=d.error; }
-}
-</script>
 </body>
 </html>

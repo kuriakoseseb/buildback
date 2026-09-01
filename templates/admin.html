@@ -117,7 +117,7 @@
   <button class="tab active" id="tab-regs" onclick="setTab('regs')">Registrations<span class="badge" id="reg-badge" style="display:none"></span></button>
   <button class="tab" id="tab-parts" onclick="setTab('parts')">All Participants</button>
   <button class="tab" id="tab-staff" onclick="setTab('staff')">Staff<span class="badge" id="staff-badge" style="display:none"></span></button>
-  <button class="tab" id="tab-cfg" onclick="setTab('cfg')">Penalty Config</button>
+  <button class="tab" id="tab-cfg" onclick="setTab('cfg')">Value Adjustments</button>
 </div>
 
 <div class="content" id="content"></div>
@@ -131,6 +131,8 @@ const IS_ADMIN = {{ 'true' if is_admin else 'false' }};
 socket.on('leaderboard_update',loadAll);
 socket.on('stations_update',loadAll);
 socket.on('projector_update',loadAll);
+socket.on('staff_update',loadAll);
+setInterval(loadAll,10000);
 
 async function loadAll(){ await Promise.all([loadRegs(),loadParts(),loadStaff()]); }
 function setTab(t){
@@ -173,21 +175,31 @@ async function loadParts(){ const r=await fetch('/api/participants/list'); parts
 function renderParts(){
   const el=document.getElementById('content');
   if(!parts.length){el.innerHTML='<div class="card"><h3>All Participants</h3><div class="empty">No approved participants</div></div>';return;}
-  const rows=parts.map(p=>{ const mr=[]; for(const c of ['PC','Laptop']){ const r=p.runs.find(x=>x.category===c);
-    let st='<span class="tag tag-pc">waiting</span>';
-    if(r.status==='running')st='<span class="tag tag-running">running</span>';
-    else if(r.status==='finished'&&!r.disqualified)st=`<span class="mono" style="color:#fff">${fmt(r.final_seconds)}</span>`;
-    else if(r.disqualified)st='<span class="tag tag-red" style="color:#fff;border-color:#fff">DQ</span>';
-    mr.push(`${c}: ${st}`); }
+  const rows=parts.map(p=>{ const mr=[]; for(const c of ['PC','Laptop']){ const rs=p.runs.filter(x=>x.category===c);
+    const cell=rs.map(r=>{
+      let st='<span class="tag tag-pc">waiting</span>';
+      if(r.status==='running')st='<span class="tag tag-running">running</span>';
+      else if(r.status==='finished'&&!r.disqualified)st=`<span class="mono" style="color:#fff">${fmt(r.final_seconds)}</span>`;
+      else if(r.disqualified)st='<span class="tag tag-red" style="color:#fff;border-color:#fff">DQ</span>';
+      const del=IS_ADMIN?` <button class="btn btn-red" style="padding:2px 8px;font-size:.68rem" onclick="delRun(${r.id})">✕</button>`:'';
+      return `${st}${r.station?` <span class="mono" style="font-size:.75rem;color:var(--muted)">@${r.station}</span>`:''} ${del}`;
+    }).join(' ');
+    mr.push(`${c}: ${cell}`); }
     // combined
-    const pc=p.runs.find(x=>x.category==='PC'), lp=p.runs.find(x=>x.category==='Laptop');
-    const done=(pc&&lp&&pc.status==='finished'&&lp.status==='finished'&&!pc.disqualified&&!lp.disqualified);
-    const comb=done?fmt(pc.final_seconds+lp.final_seconds):'—';
+    const pc=p.runs.find(x=>x.category==='PC'&&!x.disqualified&&x.status==='finished');
+    const lp=p.runs.find(x=>x.category==='Laptop'&&!x.disqualified&&x.status==='finished');
+    const comb=(pc&&lp)?fmt(pc.final_seconds+lp.final_seconds):'—';
     return `<tr><td>${esc(p.name)}${p.mate?`<div style="font-size:.72rem;color:var(--muted)">👥 ${esc(p.mate)}</div>`:''}</td>
-      <td>${mr.join(' · ')}</td><td class="mono">${comb}</td></tr>`;
+      <td>${mr.join('<br>')}</td><td class="mono">${comb}</td></tr>`;
   }).join('');
   el.innerHTML=`<div class="card"><h3>All Participants — ${parts.length}</h3>
-    <table><thead><tr><th>Name</th><th>Runs</th><th>Combined</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    <table><thead><tr><th>Name</th><th>Runs (attempts)</th><th>Combined</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+async function delRun(id){
+  if(!confirm('Delete this run? (Admin only)'))return;
+  const r=await fetch('/api/run/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({run_id:id})});
+  const d=await r.json(); showToast(d.ok?'Run deleted':(d.error||'Error'), d.ok?'success':'error');
+  renderParts();
 }
 
 let staff={pending:[],all:[]};
@@ -224,13 +236,29 @@ async function approveStaff(uid){ const r=await fetch('/api/staff/approve',{meth
 async function delStaff(uid){ if(!confirm('Delete staff account?'))return; const r=await fetch('/api/staff/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({uid})}); const d=await r.json(); showToast(d.ok?'Deleted':(d.error||'Error'), d.ok?'success':'error'); loadStaff(); }
 
 let cfg=[];
+let appConfig={};
 async function renderCfg(){
-  const r=await fetch('/api/settings/penalties'); cfg=await r.json();
+  const [p,c]=await Promise.all([(await fetch('/api/settings/penalties')).json(),(await fetch('/api/settings/config')).json()]);
+  cfg=p; appConfig=c.config||{};
   const el=document.getElementById('content');
-  el.innerHTML=`<div class="card"><h3>Build Penalty Values (seconds added)</h3>
-    <div class="pen-cfg" id="pen-grid"></div>
-    <button class="btn btn-accent" style="margin-top:20px" onclick="saveCfg()">Save Penalties</button></div>`;
+  el.innerHTML=`<div class="card"><h3>Level Transition (PC → Laptop)</h3>
+      <div class="pen-cfg">
+        <div class="field">
+          <label>Finish Level 1 within (seconds) to qualify for Level 2</label>
+          <input type="number" min="1" step="1" value="${appConfig.level2_cutoff_secs||180}" id="cfg-cutoff">
+        </div>
+      </div>
+      <button class="btn btn-accent" style="margin-top:20px" onclick="saveConfig()">Save Level Settings</button></div>
+    <div class="card"><h3>Build Penalty Values (seconds added)</h3>
+      <div class="pen-cfg" id="pen-grid"></div>
+      <button class="btn btn-accent" style="margin-top:20px" onclick="saveCfg()">Save Penalties</button></div>`;
   renderPenGrid();
+}
+async function saveConfig(){
+  const cutoff=parseInt(document.getElementById('cfg-cutoff').value)||180;
+  const r=await fetch('/api/settings/config',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({config:{level2_cutoff_secs:cutoff}})});
+  const d=await r.json(); showToast(d.ok?'Level settings saved':'Error','success');
 }
 function renderPenGrid(){
   const grid=document.getElementById('pen-grid');

@@ -68,6 +68,22 @@
   .msg{display:none;padding:12px 15px;border-radius:10px;font-size:.85rem;margin-top:14px;animation:rise .3s both;}
   .msg.err{display:block;background:rgba(255,255,255,.06);color:#f2f4f7;border:1px solid rgba(255,255,255,.35);}
   .msg.ok{display:block;background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.4);}
+
+  .st-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+    display:none;align-items:center;justify-content:center;z-index:100;padding:18px;}
+  .st-overlay.show{display:flex;}
+  .st-modal{background:var(--glass);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border:1px solid var(--border);
+    border-radius:22px;padding:26px;max-width:420px;width:100%;animation:rise .35s both;box-shadow:0 30px 90px rgba(0,0,0,.5);}
+  .st-modal h2{font-size:1.1rem;margin-bottom:6px;}
+  .st-sub{color:var(--muted);font-size:.8rem;margin-bottom:16px;}
+  .st-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px;}
+  .st-btn{background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--ink);padding:16px;border-radius:12px;
+    font-size:1rem;font-weight:800;cursor:pointer;transition:all .2s;font-family:'Inter',sans-serif;}
+  .st-btn:hover{border-color:rgba(255,255,255,.5);color:#fff;transform:translateY(-1px);}
+  .st-btn:disabled{opacity:.35;cursor:not-allowed;transform:none;}
+  .st-empty{color:var(--muted);font-size:.85rem;text-align:center;padding:12px 0;}
+  .st-skip{width:100%;padding:12px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--muted);
+    cursor:pointer;font-family:'Inter',sans-serif;font-size:.85rem;}
 </style>
 </head>
 <body>
@@ -116,8 +132,18 @@
   </div>
 </div>
 
+<div class="st-overlay" id="st-overlay">
+  <div class="st-modal">
+    <h2>🎯 Assign PC station</h2>
+    <div class="st-sub">Where is <span id="st-name"></span> starting Level 1 (PC)? The projector will show them there instantly.</div>
+    <div class="st-grid" id="st-grid"><div class="st-empty">Loading free stations…</div></div>
+    <button class="st-skip" onclick="closeStationPicker()">Skip — assign later on the Station page</button>
+  </div>
+</div>
+
 <script>
 let mode='individual';
+let pendingPid=null, pendingName='';
 function setMode(m){ mode=m;
   document.getElementById('tab-ind').className='tab'+(m==='individual'?' active':'');
   document.getElementById('tab-team').className='tab team'+(m==='team'?' active':'');
@@ -137,8 +163,30 @@ async function submitCompetitor(){
     body:JSON.stringify({play_mode:mode,students})});
   const d=await res.json();
   if(d.ok){ msg.className='msg ok'; msg.textContent=d.msg+'. They can start building right away.';
-    ['s1-name','s1-dept','s1-sem','s1-college','s2-name','s2-dept','s2-sem','s2-college'].forEach(id=>{const e=byId(id); if(e)e.value='';});
+    const cleared=['s1-name','s1-dept','s1-sem','s1-college','s2-name','s2-dept','s2-sem','s2-college'].forEach(id=>{const e=byId(id); if(e)e.value='';});
+    pendingPid=d.participant_id; pendingName=students[0].name;
+    openStationPicker();
   } else { msg.className='msg err'; msg.textContent=d.error; }
+}
+async function openStationPicker(){
+  byId('st-name').textContent=pendingName||'this competitor';
+  byId('st-overlay').classList.add('show');
+  try{
+    const r=await fetch('/api/stations/free'); const d=await r.json();
+    const freeL1=(d.find(x=>x.level==='Level 1')||{stations:[]}).stations;
+    const grid=byId('st-grid');
+    if(!freeL1.length) grid.innerHTML='<div class="st-empty">No free PC stations — all occupied. Assign later.</div>';
+    else grid.innerHTML=freeL1.map(s=>`<button class="st-btn" onclick="assignStation('${s}')">${s}</button>`).join('');
+  }catch(e){ byId('st-grid').innerHTML='<div class="st-empty">Failed to load stations</div>'; }
+}
+function closeStationPicker(){ byId('st-overlay').classList.remove('show'); }
+async function assignStation(code){
+  const res=await fetch('/api/run/assign-station',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({participant_id:pendingPid,category:'PC',station:code})});
+  const d=await res.json();
+  byId('reg-msg').className='msg ok';
+  byId('reg-msg').textContent=d.ok?`${pendingName} assigned to ${code} — now showing on the projector.`:(d.error||'Failed to assign station.');
+  closeStationPicker();
 }
 async function logout(){ await fetch('/api/auth/logout',{method:'POST'}); window.location.href='/login'; }
 (async function(){ try{ const r=await fetch('/api/auth/me'); const d=await r.json();

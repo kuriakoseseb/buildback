@@ -13,7 +13,18 @@ BASE = os.path.dirname(os.path.abspath(__file__))
 DB = os.path.join(BASE, 'builback.db')
 
 CATEGORIES = ['PC', 'Laptop']
+MAX_ATTEMPTS = 2
 ROLES = ['admin', 'super', 'volunteer']
+
+# Physical stations: Level 1 (PC build) = L11..L16, Level 2 (Laptop build) = L21..L22
+STATIONS = {
+    'Level 1': ['L11', 'L12', 'L13', 'L14', 'L15', 'L16'],
+    'Level 2': ['L21', 'L22'],
+}
+STATION_LEVEL = {code: lvl for lvl, codes in STATIONS.items() for code in codes}
+
+# Admin-tweakable event values (Value Adjustments)
+DEFAULT_CONFIG = {'level2_cutoff_secs': 180}  # finish Level 1 within this to move to Level 2
 
 # ── Time budget for the auto mini-game popup (seconds) ──────────────────────
 MINIGAME_POPUP_AT = 150  # 2:30
@@ -110,6 +121,8 @@ def init_db():
                 final_seconds REAL DEFAULT 0,
                 status TEXT DEFAULT 'waiting',
                 disqualified INTEGER DEFAULT 0,
+                paused_start REAL,
+                paused_seconds REAL DEFAULT 0,
                 created_at REAL,
                 FOREIGN KEY(participant_id) REFERENCES participants(id),
                 FOREIGN KEY(volunteer_id) REFERENCES users(id)
@@ -155,13 +168,26 @@ def init_db():
             conn.execute('INSERT INTO settings (key,value) VALUES (?,?)',
                          ('penalties', json.dumps(DEFAULT_PENALTIES)))
 
-        # Ensure each participant has both PC and Laptop runs
+        # Persist event value-adjustment config
+        cur = conn.execute('SELECT value FROM settings WHERE key=?', ('config',))
+        if not cur.fetchone():
+            conn.execute('INSERT INTO settings (key,value) VALUES (?,?)',
+                         ('config', json.dumps(DEFAULT_CONFIG)))
+
+        # Migration: add pause columns to existing runs table if missing
+        run_cols = {r['name'] for r in conn.execute('PRAGMA table_info(runs)').fetchall()}
+        if 'paused_start' not in run_cols:
+            conn.execute('ALTER TABLE runs ADD COLUMN paused_start REAL')
+        if 'paused_seconds' not in run_cols:
+            conn.execute('ALTER TABLE runs ADD COLUMN paused_seconds REAL DEFAULT 0')
+
+        # Ensure each participant has MAX_ATTEMPTS runs per category
         parts = conn.execute('SELECT id FROM participants').fetchall()
         for p in parts:
             for cat in CATEGORIES:
-                has = conn.execute('SELECT id FROM runs WHERE participant_id=? AND category=?',
-                                   (p['id'], cat)).fetchone()
-                if not has:
+                cnt = conn.execute('SELECT COUNT(*) FROM runs WHERE participant_id=? AND category=?',
+                                   (p['id'], cat)).fetchone()[0]
+                for _ in range(max(0, MAX_ATTEMPTS - cnt)):
                     conn.execute('INSERT INTO runs (participant_id,category,status,created_at) VALUES (?,?,?,?)',
                                  (p['id'], cat, 'waiting', time.time()))
 
@@ -173,6 +199,39 @@ def get_settings():
     with get_db() as conn:
         row = conn.execute("SELECT value FROM settings WHERE key='penalties'").fetchone()
     return json.loads(row['value'])
+
+
+def get_config():
+    with get_db() as conn:
+        row = conn.execute("SELECT value FROM settings WHERE key='config'").fetchone()
+    cfg = json.loads(row['value']) if row else {}
+    for k, v in DEFAULT_CONFIG.items():
+        cfg.setdefault(k, v)
+    return cfg
+
+
+def save_config(cfg):
+    merged = {}
+    for k, v in DEFAULT_CONFIG.items():
+        merged[k] = v
+    for k, v in cfg.items():
+        merged[k] = v
+    with get_db() as conn:
+        conn.execute('INSERT INTO settings (key,value) VALUES (?,?) '
+                     'ON CONFLICT(key) DO UPDATE SET value=excluded.value',
+                     ('config', json.dumps(merged)))
+    return merged
+
+
+def elapsed_seconds(run, now=None):
+    """Elapsed wall time for a run, excluding any paused duration."""
+    if now is None:
+        now = time.time()
+    base = (now - run['start_time']) if run['start_time'] else 0
+    paused = run['paused_seconds'] or 0
+    if run['paused_start']:
+        paused += max(0.0, now - run['paused_start'])
+    return max(0.0, base - paused)
 
 
 def dsi_deduction(elapsed):
@@ -249,7 +308,8 @@ def home():
 @roles_required('volunteer', 'super', 'admin')
 def volunteer_page():
     return render_template('volunteer.html', minigames=json.dumps(MINIGAMES),
-                           popup_at=MINIGAME_POPUP_AT, penalties=json.dumps(get_settings()))
+                           popup_at=MINIGAME_POPUP_AT, penalties=json.dumps(get_settings()),
+                           stations=json.dumps(STATIONS), config=json.dumps(get_config()))
 
 
 @app.route('/competitors', methods=['GET'])
@@ -302,6 +362,7 @@ def register():
         conn.execute('''INSERT INTO users (username,password_hash,role,display_name,station,approved,created_at)
                         VALUES (?,?,?,?,?,0,?)''',
                      (username, generate_password_hash(password), role, display, station, time.time()))
+    socketio.emit('staff_update')
     return jsonify({'ok': True, 'msg': 'Volunteer registered — awaiting approval'})
 
 
@@ -383,7 +444,9 @@ def approve_registration():
     with get_db() as conn:
         conn.execute('UPDATE participants SET approved=1 WHERE id=?', (pid,))
         for cat in CATEGORIES:
-            if not conn.execute('SELECT id FROM runs WHERE participant_id=? AND category=?', (pid, cat)).fetchone():
+            cnt = conn.execute('SELECT COUNT(*) FROM runs WHERE participant_id=? AND category=?',
+                               (pid, cat)).fetchone()[0]
+            for _ in range(max(0, MAX_ATTEMPTS - cnt)):
                 conn.execute('INSERT INTO runs (participant_id,category,status,created_at) VALUES (?,?,?,?)',
                              (pid, cat, 'waiting', time.time()))
     broadcast_all()
@@ -412,6 +475,9 @@ def add_participant():
     if mode not in ('individual', 'team'):
         return jsonify({'ok': False, 'error': 'Invalid play mode'})
     students = d.get('students') or []
+    station = (d.get('station') or '').strip() or None
+    if station and station not in STATION_LEVEL:
+        return jsonify({'ok': False, 'error': f"Unknown station '{station}'"})
     if len(students) < 1:
         return jsonify({'ok': False, 'error': 'Primary student details required'})
 
@@ -435,9 +501,15 @@ def add_participant():
             conn.execute('INSERT INTO students (participant_id,slot,name,department,semester,college) VALUES (?,2,?,?,?,?)',
                          (pid, s2['name'], s2['department'], s2['semester'], s2['college']))
         for cat in CATEGORIES:
-            conn.execute('INSERT INTO runs (participant_id,category,status,created_at) VALUES (?,?,?,?)',
-                         (pid, cat, 'waiting', time.time()))
-    return jsonify({'ok': True, 'msg': 'Registered — ready to compete'})
+            for _ in range(MAX_ATTEMPTS):
+                conn.execute('INSERT INTO runs (participant_id,category,status,created_at) VALUES (?,?,?,?)',
+                             (pid, cat, 'waiting', time.time()))
+            if station and cat == 'PC':
+                conn.execute('UPDATE runs SET station=? WHERE participant_id=? AND category=? '
+                             'AND status="waiting" ORDER BY id LIMIT 1',
+                             (station, pid, cat))
+    broadcast_all()
+    return jsonify({'ok': True, 'participant_id': pid, 'msg': 'Registered — ready to compete'})
 
 
 @app.route('/api/participants/list', methods=['GET'])
@@ -451,8 +523,9 @@ def list_participants():
                                FROM participants p WHERE p.approved=1 ORDER BY p.id''').fetchall()
         out = []
         for r in rows:
-            runs = conn.execute('''SELECT id,category,status,disqualified,start_time,end_time,
-                                   raw_seconds,penalty_seconds,bonus_seconds,final_seconds
+            runs = conn.execute('''SELECT id,category,station,status,disqualified,start_time,end_time,
+                                   raw_seconds,penalty_seconds,bonus_seconds,final_seconds,
+                                   paused_start,paused_seconds
                                    FROM runs WHERE participant_id=? ORDER BY id''', (r['id'],)).fetchall()
             out.append({**dict(r), 'runs': [dict(x) for x in runs]})
     return jsonify(out)
@@ -462,7 +535,7 @@ def list_participants():
 
 def recalc(run, conn):
     if run['status'] == 'finished' and run['start_time']:
-        raw = (run['end_time'] or run['start_time']) - run['start_time']
+        raw = elapsed_seconds(run, run['end_time'] or run['start_time'])
         final = max(0.0, raw + (run['penalty_seconds'] or 0) - (run['bonus_seconds'] or 0))
         conn.execute('UPDATE runs SET final_seconds=? WHERE id=?', (final, run['id']))
 
@@ -484,6 +557,7 @@ def start_run():
             return jsonify({'ok': False, 'error': 'Already running'})
         conn.execute('''UPDATE runs SET start_time=?, status='running', end_time=NULL,
                         raw_seconds=0, penalty_seconds=0, bonus_seconds=0, final_seconds=0, disqualified=0,
+                        paused_start=NULL, paused_seconds=0,
                         volunteer_id=?, station=? WHERE id=?''',
                      (now, u['id'], station or '', run_id))
         if station:
@@ -504,7 +578,13 @@ def stop_run():
         run = conn.execute('SELECT * FROM runs WHERE id=?', (run_id,)).fetchone()
         if not run or run['status'] != 'running':
             return jsonify({'ok': False, 'error': 'Not running'})
-        raw = now - run['start_time']
+        # finalize any in-flight pause before computing raw
+        if run['paused_start']:
+            paused_seconds = (run['paused_seconds'] or 0) + (now - run['paused_start'])
+            conn.execute('UPDATE runs SET paused_start=NULL, paused_seconds=? WHERE id=?',
+                         (paused_seconds, run_id))
+            run = conn.execute('SELECT * FROM runs WHERE id=?', (run_id,)).fetchone()
+        raw = elapsed_seconds(run, now)
         final = max(0.0, raw + (run['penalty_seconds'] or 0) - (run['bonus_seconds'] or 0))
         conn.execute('UPDATE runs SET end_time=?, raw_seconds=?, final_seconds=?, status="finished" WHERE id=?',
                      (now, raw, final, run_id))
@@ -572,12 +652,106 @@ def reset_run():
     run_id = request.json['run_id']
     with get_db() as conn:
         conn.execute('''UPDATE runs SET status='waiting', start_time=NULL, end_time=NULL,
-                        raw_seconds=0, penalty_seconds=0, bonus_seconds=0, final_seconds=0, disqualified=0 WHERE id=?''',
+                        raw_seconds=0, penalty_seconds=0, bonus_seconds=0, final_seconds=0, disqualified=0,
+                        paused_start=NULL, paused_seconds=0 WHERE id=?''',
                      (run_id,))
         conn.execute('DELETE FROM penalties WHERE run_id=?', (run_id,))
         conn.execute('DELETE FROM minigame_results WHERE run_id=?', (run_id,))
     broadcast_all()
     return jsonify({'ok': True})
+
+
+@app.route('/api/run/delete', methods=['POST'])
+@login_required
+@roles_required('admin', 'super')
+def delete_run():
+    """Remove a single run (and its penalties/mini-game results) entirely."""
+    run_id = request.json['run_id']
+    with get_db() as conn:
+        conn.execute('DELETE FROM penalties WHERE run_id=?', (run_id,))
+        conn.execute('DELETE FROM minigame_results WHERE run_id=?', (run_id,))
+        conn.execute('DELETE FROM runs WHERE id=?', (run_id,))
+    broadcast_all()
+    return jsonify({'ok': True})
+
+
+@app.route('/api/run/pause', methods=['POST'])
+@login_required
+@roles_required('volunteer', 'super', 'admin')
+def pause_run():
+    """Pause a running run's timer (e.g. during mini-games)."""
+    run_id = request.json['run_id']
+    with get_db() as conn:
+        run = conn.execute('SELECT * FROM runs WHERE id=?', (run_id,)).fetchone()
+        if not run or run['status'] != 'running':
+            return jsonify({'ok': False, 'error': 'Not running'})
+        if not run['paused_start']:
+            conn.execute('UPDATE runs SET paused_start=? WHERE id=?', (time.time(), run_id))
+    return jsonify({'ok': True})
+
+
+@app.route('/api/run/resume', methods=['POST'])
+@login_required
+@roles_required('volunteer', 'super', 'admin')
+def resume_run():
+    run_id = request.json['run_id']
+    with get_db() as conn:
+        run = conn.execute('SELECT * FROM runs WHERE id=?', (run_id,)).fetchone()
+        if not run or run['status'] != 'running':
+            return jsonify({'ok': False, 'error': 'Not running'})
+        if run['paused_start']:
+            now = time.time()
+            tot = (run['paused_seconds'] or 0) + (now - run['paused_start'])
+            conn.execute('UPDATE runs SET paused_start=NULL, paused_seconds=? WHERE id=?', (tot, run_id))
+    broadcast_all()
+    return jsonify({'ok': True})
+
+
+# ── Station assignment ───────────────────────────────────────────────────────
+
+@app.route('/api/stations/free')
+@login_required
+def free_stations():
+    """Stations with no run waiting/running on them (assignable)."""
+    with get_db() as conn:
+        busy = conn.execute('''SELECT DISTINCT station FROM runs
+                               WHERE station IS NOT NULL AND station != ''
+                               AND status IN ('waiting','running')''').fetchall()
+        busy = {r['station'] for r in busy}
+    out = []
+    for level, codes in STATIONS.items():
+        free = [c for c in codes if c not in busy]
+        out.append({'level': level, 'category': 'PC' if level == 'Level 1' else 'Laptop',
+                    'stations': free})
+    return jsonify(out)
+
+
+@app.route('/api/run/assign-station', methods=['POST'])
+@login_required
+@roles_required('volunteer', 'super', 'admin')
+def assign_station():
+    """Assign a physical station to a participant's next waiting run (Level 1
+    stations for PC runs, Level 2 stations for Laptop runs)."""
+    d = request.json
+    participant_id = d.get('participant_id')
+    category = d.get('category')
+    station = (d.get('station') or '').strip()
+    if category not in CATEGORIES:
+        return jsonify({'ok': False, 'error': 'Invalid category'})
+    if station not in STATION_LEVEL:
+        return jsonify({'ok': False, 'error': f"Unknown station '{station}'"})
+    want_level = 'Level 1' if category == 'PC' else 'Level 2'
+    if STATION_LEVEL[station] != want_level:
+        return jsonify({'ok': False, 'error': f'{category} runs use {want_level} stations only'})
+    with get_db() as conn:
+        run = conn.execute('''SELECT id FROM runs WHERE participant_id=? AND category=?
+                              AND status IN ('waiting','running') ORDER BY id LIMIT 1''',
+                           (participant_id, category)).fetchone()
+        if not run:
+            return jsonify({'ok': False, 'error': 'No available run for this category'})
+        conn.execute('UPDATE runs SET station=? WHERE id=?', (station, run['id']))
+    broadcast_all()
+    return jsonify({'ok': True, 'run_id': run['id']})
 
 
 # ── Mini-game API ───────────────────────────────────────────────────────────
@@ -617,7 +791,7 @@ def minigame_result():
         conn.execute('UPDATE runs SET bonus_seconds = bonus_seconds + ? WHERE id=?', (bonus, run_id))
         run2 = conn.execute('SELECT * FROM runs WHERE id=?', (run_id,)).fetchone()
         if run2['start_time']:
-            raw = time.time() - run2['start_time']
+            raw = elapsed_seconds(run2, time.time())
             final = max(0.0, raw + (run2['penalty_seconds'] or 0) - (run2['bonus_seconds'] or 0))
             conn.execute('UPDATE runs SET final_seconds=? WHERE id=?', (final, run_id))
     broadcast_all()
@@ -719,6 +893,21 @@ def save_penalty_settings():
     return jsonify({'ok': True, 'penalties': get_settings()})
 
 
+@app.route('/api/settings/config', methods=['GET'])
+@login_required
+def get_config_settings():
+    return jsonify(get_config())
+
+
+@app.route('/api/settings/config', methods=['POST'])
+@login_required
+@roles_required('admin')
+def save_config_settings():
+    cfg = save_config({k: v for k, v in (request.json or {}).items()})
+    broadcast_all()
+    return jsonify({'ok': True, 'config': cfg})
+
+
 # ── Leaderboard / projector data ────────────────────────────────────────────
 
 def get_leaderboard():
@@ -733,34 +922,50 @@ def get_leaderboard():
 
 
 def combined_total(participant_id):
-    """Sum of finished, non-DQ run times for a participant (incl. bonuses/penalties)."""
+    """Best finished, non-DQ time per category, summed. Complete only when a
+    category is either fully disqualified or has a finished valid run."""
     with get_db() as conn:
         rows = conn.execute('''SELECT category, final_seconds, status, disqualified FROM runs
                                WHERE participant_id=?''', (participant_id,)).fetchall()
-    total = 0.0
-    complete = True
+    best = {}
+    has_dq = set()
     for r in rows:
-        if r['disqualified']:
-            return None, False
         if r['status'] == 'finished':
-            total += r['final_seconds']
-        else:
-            complete = False
-    return total, complete
+            if r['disqualified']:
+                has_dq.add(r['category'])
+            elif r['category'] not in best or r['final_seconds'] < best[r['category']]:
+                best[r['category']] = r['final_seconds']
+    if min(len(best), len(CATEGORIES)) != len(CATEGORIES):
+        return None, False
+    return sum(best.get(c, 0) for c in CATEGORIES), True
 
 
 def get_projector_data():
     led = get_leaderboard()
 
-    # Per-category rankings (finished only, ascending final time)
+    # Per-category rankings (best finished non-DQ attempt per participant)
     ranked = {c: [] for c in CATEGORIES}
+    dq_rows = {c: [] for c in CATEGORIES}
+    by_participant_cat = {}
     for r in led:
-        if r['status'] == 'finished' and not r['disqualified']:
-            ranked[r['category']].append(r)
+        if r['status'] == 'finished':
+            key = (r['participant_id'], r['category'])
+            if r['disqualified']:
+                by_participant_cat.setdefault(key, {'dq': r})
+            else:
+                cur = by_participant_cat.setdefault(key, {'dq': None})
+                if cur.get('best') is None or r['final_seconds'] < cur['best']['final_seconds']:
+                    cur['best'] = r
+    for key, v in by_participant_cat.items():
+        cat = key[1]
+        if v.get('best'):
+            ranked[cat].append(v['best'])
+        elif v.get('dq'):
+            dq_rows[cat].append(v['dq'])
     for c in CATEGORIES:
         ranked[c] = sorted(ranked[c], key=lambda x: x['final_seconds'])
 
-    # Combined best (participants with both PC+Laptop finished)
+    # Combined best (best PC + best Laptop) — only participants with both finished
     by_participant = {}
     for r in led:
         by_participant.setdefault(r['participant_id'], []).append(r)
@@ -778,33 +983,66 @@ def get_projector_data():
     active = [r for r in led if r['status'] == 'running']
     waiting = [r for r in led if r['status'] == 'waiting']
     finished_count = sum(1 for r in led if r['status'] == 'finished' and not r['disqualified'])
+    pc_finished = sum(1 for r in led if r['status'] == 'finished' and not r['disqualified'] and r['category'] == 'PC')
+    laptop_finished = sum(1 for r in led if r['status'] == 'finished' and not r['disqualified'] and r['category'] == 'Laptop')
 
     return {
         'runs': led,
         'ranked': ranked,
+        'dq_rows': dq_rows,
         'combined': combined,
         'active': active,
         'waiting': waiting,
         'finished_count': finished_count,
+        'pc_finished': pc_finished,
+        'laptop_finished': laptop_finished,
         'total_participants': len(by_participant),
+        'stations': get_stations_v2(),
     }
 
 
 def get_stations():
+    """Physical stations (L11..L16 Level 1, L21..L22 Level 2) with the team
+    currently assigned/running at each. A station is 'occupied' by the most
+    recent waiting or running run assigned to it."""
     with get_db() as conn:
-        rows = conn.execute('''SELECT id, username, display_name, station, approved, role FROM users
-                               WHERE role='volunteer' AND approved=1 ORDER BY station''').fetchall()
-        stations = []
-        for u in rows:
-            active = conn.execute('''SELECT r.id, r.category, r.status, p.play_mode,
-                                     (SELECT name FROM students s WHERE s.participant_id=p.id AND s.slot=1) as name,
-                                     r.start_time, r.penalty_seconds, r.bonus_seconds
-                                     FROM runs r JOIN participants p ON r.participant_id=p.id
-                                     WHERE r.status='running' AND r.volunteer_id=? ORDER BY r.start_time DESC LIMIT 1''',
-                                  (u['id'],)).fetchone()
-            stations.append({'user': dict(u),
-                             'active': dict(active) if active else None})
-    return stations
+        rows = conn.execute('''SELECT r.id, r.category, r.station, r.status, r.start_time, r.end_time,
+                               r.final_seconds, r.disqualified, r.paused_start, r.paused_seconds,
+                               p.play_mode,
+                               (SELECT name FROM students s WHERE s.participant_id=p.id AND s.slot=1) as name,
+                               (SELECT name FROM students s WHERE s.participant_id=p.id AND s.slot=2) as mate
+                               FROM runs r JOIN participants p ON r.participant_id=p.id
+                               WHERE r.station IS NOT NULL AND r.station != '' AND p.approved=1
+                               ORDER BY r.id''').fetchall()
+        runs = [dict(r) for r in rows]
+
+    by_station = {}
+    for r in runs:
+        by_station.setdefault(r['station'], []).append(r)
+
+    out = []
+    for level, codes in STATIONS.items():
+        for code in codes:
+            pool = by_station.get(code, [])
+            # Most recent run that is not finished; else most recent finished (for flash)
+            current = None
+            for r in reversed(pool):
+                if r['status'] != 'finished':
+                    current = r
+                    break
+            if current is None and pool:
+                current = pool[-1]
+            out.append({
+                'code': code,
+                'level': level,
+                'category': 'PC' if level == 'Level 1' else 'Laptop',
+                'run': current,
+            })
+    return out
+
+
+def get_stations_v2():
+    return get_stations()
 
 
 @app.route('/api/leaderboard')
@@ -835,7 +1073,8 @@ def run_penalties(run_id):
 def api_meta():
     return jsonify({'minigames': MINIGAMES, 'popup_at': MINIGAME_POPUP_AT,
                     'categories': CATEGORIES, 'dsi_brackets': DSI_BRACKETS,
-                    'penalties': get_settings()})
+                    'penalties': get_settings(), 'config': get_config(),
+                    'stations': STATIONS, 'max_attempts': MAX_ATTEMPTS})
 
 
 if __name__ == '__main__':

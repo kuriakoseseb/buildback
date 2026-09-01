@@ -241,6 +241,13 @@ const socket=io();
 const MINIGAMES = {{ minigames|safe }};
 const POPUP_AT = {{ popup_at }};
 const PENALTIES = {{ penalties|safe }};
+const STATIONS = {{ stations|safe }};
+const CONFIG = {{ config|safe }} || {};
+const CATEGORIES = ['PC','Laptop']; // run categories
+const CAT_LEVEL = {PC:'Level 1', Laptop:'Level 2'};
+const LEVEL2_CUTOFF = CONFIG.level2_cutoff_secs||180;
+const LEVELS = Object.keys(STATIONS);
+const LEVEL_OF = Object.keys(STATIONS).reduce((m,lvl)=>{STATIONS[lvl].forEach(s=>m[s]=lvl);return m;},{});
 
 let me={}, participants=[], selectedRun=null, selectedPart=null;
 let timerIV=null, isRunning=false, runStart=null;
@@ -248,6 +255,7 @@ let runPenalty=0, runBonus=0;
 let mgShowStartedAt=null, mgShown=false;
 let gameplay=null; // {game, cfg, idx, results}
 let dsiIV=null, dsiElapsed=0, dsiWord=null;
+let pausedSecs=0, pausedAt=null, paused=false;
 
 socket.on('leaderboard_update', loadAll);
 
@@ -278,7 +286,8 @@ function renderList(){
     const cat=p.runs.map(r=>r.status==='running'?r.category:null).find(Boolean);
     let statusTag='';
     if(p.runs.some(r=>r.status==='running')) statusTag='<span class="tag tag-running">Running</span>';
-    else if(p.runs.every(r=>r.status==='finished')) statusTag='<span class="tag tag-finished">Done</span>';
+    else if(CATEGORIES.every(cat=>p.runs.some(r=>r.category===cat&&r.status==='finished'&&!r.disqualified)))
+      statusTag='<span class="tag tag-finished">Done</span>';
     const modeTag=`<span class="tag ${p.play_mode==='team'?'tag-team':'tag-ind'}">${p.play_mode==='team'?'Team':'Solo'}</span>`;
     return `<div class="p-card ${isSel?'selected':''}" onclick="selectParticipant(${p.id})">
       <div class="name"><span>${esc(p.name)}</span>${modeTag}</div>
@@ -297,21 +306,30 @@ function selectParticipant(pid){
 }
 function renderRunPicker(p){
   const main=document.getElementById('main');
+  const byCat={};
+  p.runs.forEach(r=>{ (byCat[r.category]=byCat[r.category]||[]).push(r); });
+  const blocks=CATEGORIES.map(cat=>{
+    const runs=byCat[cat]||[];
+    return `<div style="margin-bottom:18px">
+      <div class="section-title">${cat==='PC'?'🖥️':'💻'} ${cat} Build ${cat==='PC'?'(Level 1)':'(Level 2)'} — attempts</div>
+    <div class="pen-grid" style="grid-template-columns:1fr 1fr;gap:14px;">
+      ${runs.map((r,i)=>{
+        const done=r.status==='finished';
+        const st=r.station?' — '+r.station:'';
+        return `<button class="btn-pen" style="padding:26px;text-align:left" onclick="renderControl(${r.id},${p.id})">
+          <div class="l" style="font-size:1.15rem">${cat==='PC'?'🖥️':'💻'} ${cat} Build · Attempt ${i+1}</div>
+          <div class="s" style="color:var(--muted)">${done?('✔ Finished — '+fmt(r.final_seconds)):(r.status==='running'?'Running…':('Not started'+st))}</div>
+        </button>`;
+      }).join('')||'<div class="log-empty">No runs</div>'}
+    </div></div>`;
+  });
   main.innerHTML=`
     <div class="sel-head">
       <h2>${esc(p.name)}</h2> ${p.mate?`<span class="tag tag-team">Teammate: ${esc(p.mate)}</span>`:''}
       <span class="station">${p.play_mode==='team'?'Team':'Individual'}</span>
     </div>
-    <div class="pen-grid" style="grid-template-columns:1fr 1fr;gap:14px;">
-      ${p.runs.map(r=>{
-        const done=r.status==='finished';
-        const cat=r.category;
-        return `<button class="btn-pen" style="padding:28px;text-align:left" onclick="renderControl(${r.id},${p.id})">
-          <div class="l" style="font-size:1.2rem">${cat==='PC'?'🖥️':'💻'} ${cat} Build</div>
-          <div class="s" style="color:var(--muted)">${done?('✔ Finished — '+fmt(r.final_seconds)):(r.status==='running'?'Running…':'Not started')}</div>
-        </button>`;
-      }).join('')}
-    </div>`;
+    ${blocks.join('')}
+    ${renderL2Button(p)}`;
 }
 function renderControl(runId,pid){
   // pid may be object (from selectParticipant) or number
@@ -341,11 +359,10 @@ async function renderRunControl(){
       <div class="label">${run.category} Build — Timer</div>
       <div class="time ${isFin?'stopped':''}" id="timer-big">${isFin?fmt(run.final_seconds - run.penalty_seconds + run.bonus_seconds):'00:00.0'}</div>
       <div class="station-pick" id="station-pick" ${isRun||isFin?'style="display:none"':''}>
-        <label>Station I'm volunteering at</label>
+        <label>Station for this run</label>
         <select id="station-select">
           <option value="">Select station…</option>
-          <option value="Level 1">Level 1 — PC</option>
-          <option value="Level 2">Level 2 — Laptop</option>
+          ${(STATIONS[CAT_LEVEL[run.category]]||[]).map(s=>`<option value="${s}" ${s===run.station?'selected':''}>${s}</option>`).join('')}
         </select>
       </div>
       <div class="timer-sums">
@@ -397,34 +414,48 @@ async function loadLogs(runId){
 
 async function startRun(){
   const sel=document.getElementById('station-select');
-  const station=sel?sel.value:'';
-  if(!station) return showToast('Select your station first','error');
+  const picked=sel?sel.value:'';
+  const station=selectedRun.station||picked;
+  if(!station) return showToast('Assign a station for this run first','error');
   const res=await fetch('/api/run/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({run_id:selectedRun.id,station})});
   const d=await res.json(); if(!d.ok) return showToast(d.error,'error');
-  me.station=station;
-  const ms=document.getElementById('my-station'); if(ms) ms.textContent=station;
-  runPenalty=0;runBonus=0;mgShown=false;
+  me.station=selectedRun.station||station;
+  const ms=document.getElementById('my-station'); if(ms) ms.textContent=me.station;
+  runPenalty=0;runBonus=0;mgShown=false;pausedSecs=0;pausedAt=null;paused=false;
   selectedRun.status='running';
   startTiming(); renderRunControl(); loadParticipants(); showToast('Timer started','success');
 }
 function startTiming(){
   stopTiming();
   isRunning=true;
-  runStart=Date.now()-( (selectedRun.raw_seconds||0)*1000 );
+  pausedSecs=selectedRun.paused_seconds||0;
+  paused=!!selectedRun.paused_start;
+  pausedAt=paused?Date.now():null;
+  let baseSecs=0;
+  if(selectedRun.start_time){
+    baseSecs=(Date.now()/1000)-selectedRun.start_time - pausedSecs;
+    if(paused) baseSecs=Math.max(0,(selectedRun.paused_start-selectedRun.start_time)-pausedSecs);
+  }
+  runStart=Date.now()-(baseSecs*1000);
   timerIV=setInterval(()=>{
-    const el=document.getElementById('timer-big'); if(!el)return;
-    el.textContent=fmt((Date.now()-runStart)/1000);
-    const elapsed=(Date.now()-runStart)/1000;
-    if(!mgShown && elapsed>=POPUP_AT && me.role!=='admin'){ openMinigames(); }
+    const elapsed=currentElapsed();
+    const el=document.getElementById('timer-big'); if(el) el.textContent=fmt(elapsed);
+    if(!mgShown && !paused && elapsed>=POPUP_AT && me.role!=='admin'){ openMinigames(); }
   },100);
 }
+function currentElapsed(){
+  const base=(Date.now()-runStart)/1000 - pausedSecs;
+  if(pausedAt) return base - ((Date.now()-pausedAt)/1000);
+  return base;
+}
 function stopTiming(){ if(timerIV)clearInterval(timerIV); isRunning=false; }
-function refreshTimerOnly(){ if(isRunning){const el=document.getElementById('timer-big'); if(el)el.textContent=fmt((Date.now()-runStart)/1000);} }
+function refreshTimerOnly(){ if(isRunning){const el=document.getElementById('timer-big'); if(el){const t=currentElapsed(); el.textContent=fmt(t);} } }
 async function stopRun(){
+  if(paused){ await resumeRun(); }
   stopTiming();
   const res=await fetch('/api/run/stop',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({run_id:selectedRun.id})});
   const d=await res.json();
-  if(d.ok){ showToast(`Finished: ${fmt(d.final)}`,'success'); selectedRun.status='finished'; renderRunControl(); loadParticipants(); }
+  if(d.ok){ showToast(`Finished: ${fmt(d.final)}`,'success'); selectedRun.status='finished'; selectedRun.final_seconds=d.final; renderRunControl(); loadParticipants(); }
   else showToast(d.error,'error');
 }
 async function addPenalty(v){
@@ -444,9 +475,26 @@ function updateSums(){
 
 /* ── Mini games ── */
 let currentGames=[];
+async function pauseRun(){
+  if(!selectedRun || selectedRun.status!=='running' || paused) return;
+  const res=await fetch('/api/run/pause',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({run_id:selectedRun.id})});
+  const d=await res.json(); if(!d.ok)return;
+  paused=true; pausedAt=Date.now();
+  const el=document.getElementById('timer-big');
+  if(el) el.textContent=fmt(currentElapsed());
+  if(selectedRun.paused_start===undefined) selectedRun.paused_start=Date.now()/1000;
+}
+async function resumeRun(){
+  if(!selectedRun || selectedRun.status!=='running' || !paused) return;
+  const res=await fetch('/api/run/resume',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({run_id:selectedRun.id})});
+  const d=await res.json(); if(!d.ok)return;
+  pausedSecs+=((Date.now()-pausedAt)/1000);
+  paused=false; pausedAt=null;
+}
 function openMinigames(){
   if(!selectedRun || selectedRun.status!=='running') return;
   mgShown=true;
+  pauseRun();
   const isTeam=selectedPart.play_mode==='team';
   currentGames=Object.keys(MINIGAMES).filter(k=>!MINIGAMES[k].teams_only||isTeam);
   const overlay=document.getElementById('mg-overlay');
@@ -571,11 +619,46 @@ function closeGameplay(){
 }
 function closeMinigames(){
   clearInterval(dsiIV);
+  resumeRun();
   document.getElementById('mg-overlay').classList.remove('show');
   document.getElementById('gameplay').classList.remove('show');
   document.getElementById('game-chooser').style.display='grid';
 }
 
+/* ── Level 2 movement ── */
+function pcBest(p){
+  return (p.runs||[]).filter(r=>r.category==='PC'&&r.status==='finished'&&!r.disqualified)
+    .sort((a,b)=>a.final_seconds-b.final_seconds)[0];
+}
+function renderL2Button(p){
+  const best=pcBest(p);
+  if(!best) return '';
+  if(best.final_seconds>LEVEL2_CUTOFF) return '<div class="section-title">⛔ Level 1 time exceeded Level 2 cutoff — cannot move up</div>';
+  const lapW=p.runs.some(r=>r.category==='Laptop'&&!['finished','running'].includes(r.status));
+  if(!lapW) return '';
+  return `<div class="section-title" style="margin-top:10px">Level 2</div>
+    <button class="wide-btn btn-answered" onclick="moveToLevel2(${p.id},${best.final_seconds})">🚀 Move to Level 2 (PC ${fmt(best.final_seconds)} ≤ ${LEVEL2_CUTOFF}s)</button>`;
+}
+function moveToLevel2(pid){
+  const p=participants.find(x=>x.id===pid); if(!p) return;
+  const lap=p.runs.find(r=>r.category==='Laptop'&&!['finished','running'].includes(r.status));
+  if(!lap) return showToast('No waiting Laptop run','error');
+  fetch('/api/stations/free').then(r=>r.json()).then(d=>{
+    const freeL2=(d.find(x=>x.level==='Level 2')||{stations:[]}).stations;
+    if(!freeL2.length) return showToast('No free Level 2 station','error');
+    const html=`<div class="sel-head"><h2>Assign Level 2 station</h2></div>
+      <div class="pen-grid">${freeL2.map(s=>`<button class="btn-pen" onclick="assignL2(${pid},'${s}')"><div class="l" style="text-align:center">${s}</div></button>`).join('')}</div>`;
+    document.getElementById('main').innerHTML=html;
+  }).catch(()=>showToast('Failed to load free stations','error'));
+}
+async function assignL2(pid,code){
+  const res=await fetch('/api/run/assign-station',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({participant_id:pid,category:'Laptop',station:code})});
+  const d=await res.json();
+  showToast(d.ok?`Assigned ${code} — now on projector`:(d.error||'Failed'), d.ok?'success':'error');
+  loadParticipants();
+  const p=participants.find(x=>x.id===pid); if(p) renderRunPicker(p);
+}
 async function logout(){ await fetch('/api/auth/logout',{method:'POST'}); window.location.href='/login'; }
 
 function fmt(s){ if(s===null||s===undefined)return '0:00.0'; s=Math.max(0,s);

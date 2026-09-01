@@ -207,7 +207,7 @@ function renderStaff(){
       ${IS_ADMIN&&u.approved?`<select class="role-sel" onchange="setRole(${u.id},this.value)">
           ${['volunteer','super','admin'].map(r=>`<option value="${r}" ${u.role===r?'selected':''}>${r}</option>`).join('')}
         </select>`:''}
-      <button class="btn btn-red" onclick="delStaff('+u.id+')">Delete</button>
+      <button class="btn btn-red" onclick="delStaff(${u.id})">Delete</button>
     </div></div>`;
   el.innerHTML=`<div class="card"><h3>Pending Staff (${staff.pending.length})</h3>${staff.pending.length?staff.pending.map(staffRow).join(''):'<div class="empty">None</div>'}</div>
     <div class="card"><h3>Active Staff (${staff.all.length})</h3>

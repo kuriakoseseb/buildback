@@ -160,6 +160,10 @@
 
   @media (max-width:860px){
     header{padding:10px 14px;}
+    header h1{font-size:.9rem;white-space:nowrap;}
+    .nav{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+    .nav::-webkit-scrollbar{display:none;}
+    .nav-link{flex-shrink:0;padding:7px 10px;font-size:.72rem;}
     .who{display:none;}
     .layout{grid-template-columns:1fr;}
     .sidebar{border-right:none;border-bottom:1px solid var(--border);max-height:none;padding:14px;}
@@ -168,8 +172,19 @@
     .p-card{min-width:150px;flex-shrink:0;}
     .p-card:hover{transform:translateY(-2px);}
     .main{padding:16px 14px 40px;}
-    .timer-card .time{font-size:3rem;}
+    .timer-card{padding:20px 14px;}
+    .timer-card .time{font-size:2.6rem;}
+    .timer-sums{gap:14px;flex-wrap:wrap;}
+    .log-half{grid-template-columns:1fr;}
     .empty{margin-top:12vh;}
+  }
+  @media (max-width:480px){
+    .timer-card .time{font-size:2.2rem;}
+    .game-chooser{grid-template-columns:1fr 1fr;gap:8px;}
+    .answer-btns{grid-template-columns:1fr;gap:10px;}
+    .pen-grid{grid-template-columns:1fr 1fr;}
+    .sel-head h2{font-size:1.1rem;}
+    .big-answer{font-size:2rem;padding:20px;}
   }
 </style>
 </head>

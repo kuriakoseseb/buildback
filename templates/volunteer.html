@@ -6,135 +6,202 @@
 <title>Build Back — Station</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
 <style>
-  :root{--bg:#0f0f13;--surface:#1a1a24;--surface2:#22222f;--border:#2e2e40;--accent:#6c63ff;
-    --green:#00e676;--yellow:#ffd740;--red:#ff5252;--text:#e8e8f0;--muted:#7a7a9a;
-    --pc:#4fc3f7;--laptop:#ce93d8;--gold:#ffd700;}
+  :root{--bg:#06070b;--ink:#f2f4f7;--muted:#96a0ad;--border:rgba(255,255,255,.12);--accent:#fff;--accent2:#7c8694;
+    --glass:rgba(255,255,255,.05);--glass2:rgba(255,255,255,.09);}
   *{box-sizing:border-box;margin:0;padding:0;}
-  body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;}
-  header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;
-    display:flex;align-items:center;justify-content:space-between;}
-  header h1{font-size:1.25rem;letter-spacing:2px;text-transform:uppercase;}
-  header h1 span{color:var(--accent);}
-  .nav{display:flex;gap:10px;align-items:center;}
-  .nav-link{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:8px 14px;
-    border-radius:6px;text-decoration:none;font-size:0.82rem;}
-  .nav-link:hover{border-color:var(--accent);}
-  .nav-link.proj{background:#6c63ff20;color:var(--accent);border-color:#6c63ff60;}
+  body{background:radial-gradient(1100px at 20% 0%,rgba(255,255,255,.07),transparent 55%),var(--bg);
+    color:var(--ink);font-family:'Inter',system-ui,sans-serif;min-height:100vh;overflow-x:hidden;}
+  body::before{content:"";position:fixed;inset:-25%;z-index:-2;
+    background:radial-gradient(720px at 18% 20%,rgba(255,255,255,.09),transparent 60%),
+      radial-gradient(640px at 86% 12%,rgba(180,190,210,.07),transparent 60%),
+      radial-gradient(700px at 75% 85%,rgba(255,255,255,.06),transparent 60%);
+    animation:aurora 18s ease-in-out infinite alternate;pointer-events:none;}
+  @keyframes aurora{0%{transform:translate(0,0) rotate(0deg);}100%{transform:translate(3%,-2%) rotate(3deg);}}
+  @keyframes rise{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:none;}}
 
-  .layout{display:grid;grid-template-columns:300px 1fr;min-height:calc(100vh - 58px);}
-  .sidebar{background:var(--surface);border-right:1px solid var(--border);padding:18px;overflow-y:auto;max-height:calc(100vh - 58px);}
-  .sidebar h2{font-size:0.72rem;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);margin-bottom:12px;}
+  header{background:rgba(255,255,255,.05);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+    border-bottom:1px solid var(--border);padding:12px 18px;position:sticky;top:0;z-index:50;
+    display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  header h1{font-size:1.05rem;letter-spacing:2px;text-transform:uppercase;font-weight:800;
+    background:linear-gradient(90deg,#fff,#8a93a1);-webkit-background-clip:text;background-clip:text;color:transparent;}
+  .nav{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+  .who{font-size:.78rem;color:var(--muted);white-space:nowrap;}
+  .nav-link{background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--ink);padding:7px 12px;
+    border-radius:10px;text-decoration:none;font-size:.78rem;transition:all .25s;cursor:pointer;font-family:inherit;}
+  .nav-link:hover{border-color:rgba(255,255,255,.45);color:#fff;transform:translateY(-1px);}
+  .nav-link.proj{border-color:rgba(255,255,255,.4);}
+
+  .layout{display:grid;grid-template-columns:300px 1fr;min-height:calc(100vh - 56px);}
+  .sidebar{background:rgba(255,255,255,.03);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    border-right:1px solid var(--border);padding:16px;overflow-y:auto;max-height:calc(100vh - 56px);}
+  .sidebar h2{font-size:.66rem;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:12px;}
   .part-list{display:flex;flex-direction:column;gap:8px;}
-  .p-card{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;cursor:pointer;transition:all .2s;}
-  .p-card:hover{border-color:var(--accent);}
-  .p-card.selected{border-color:var(--accent);background:#6c63ff18;}
-  .p-card .name{font-weight:600;font-size:0.88rem;display:flex;justify-content:space-between;align-items:center;}
-  .p-card .meta{font-size:0.72rem;color:var(--muted);margin-top:4px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
-  .tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:0.68rem;font-weight:700;text-transform:uppercase;}
-  .tag-pc{background:#4fc3f720;color:var(--pc);border:1px solid #4fc3f740;}
-  .tag-laptop{background:#ce93d820;color:var(--laptop);border:1px solid #ce93d840;}
-  .tag-team{background:#ff658420;color:var(--accent2);border:1px solid #ff658440;}
-  .tag-ind{background:#7a7a9a20;color:var(--muted);border:1px solid #7a7a9a40;}
-  .tag-running{background:#00e67620;color:var(--green);border:1px solid #00e67640;}
-  .tag-finished{background:#7a7a9a20;color:var(--muted);border:1px solid #7a7a9a40;}
+  .p-card{background:var(--glass);border:1px solid var(--border);border-radius:12px;padding:11px 13px;cursor:pointer;
+    transition:all .25s;animation:rise .4s ease both;}
+  .p-card:hover{border-color:rgba(255,255,255,.5);transform:translateX(3px);}
+  .p-card.selected{border-color:var(--accent);background:rgba(255,255,255,.12);
+    box-shadow:0 0 0 1px var(--accent),0 4px 22px rgba(255,255,255,.15);}
+  .p-card .name{font-weight:600;font-size:.88rem;display:flex;justify-content:space-between;align-items:center;}
+  .p-card .meta{font-size:.72rem;color:var(--muted);margin-top:4px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+  .tag{display:inline-block;padding:2px 8px;border-radius:6px;font-size:.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;}
+  .tag-pc{border:1px solid rgba(255,255,255,.45);color:#fff;}
+  .tag-laptop{border:1px solid rgba(255,255,255,.45);color:#fff;}
+  .tag-team{border:1px solid rgba(255,255,255,.6);background:rgba(255,255,255,.14);color:#fff;}
+  .tag-ind{border:1px solid rgba(255,255,255,.3);color:var(--muted);}
+  .tag-running{border:1px solid var(--accent);color:#fff;background:rgba(255,255,255,.16);animation:pulse 1.4s infinite;}
+  .tag-finished{border:1px solid rgba(255,255,255,.3);color:var(--muted);}
+  .tag-dq{border:1px solid var(--accent);color:#fff;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.5;}}
 
-  .main{padding:24px;}
-  .empty{text-align:center;color:var(--muted);margin-top:20vh;font-size:0.95rem;}
-  .empty .big{font-size:3rem;display:block;margin-bottom:8px;}
+  .main{padding:22px;}
+  .empty{text-align:center;color:var(--muted);margin-top:18vh;font-size:.95rem;animation:rise .6s both;}
+  .empty .big{font-size:3rem;display:block;margin-bottom:8px;opacity:.7;}
 
-  .sel-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:20px;}
-  .sel-head h2{font-size:1.4rem;}
-  .sel-head .station{color:var(--muted);font-size:0.9rem;}
+  .sel-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px;}
+  .sel-head h2{font-size:1.35rem;font-weight:800;background:linear-gradient(90deg,#fff,#8a93a1);
+    -webkit-background-clip:text;background-clip:text;color:transparent;}
+  .sel-head .station{font-size:.8rem;color:var(--muted);}
 
-  .timer-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px;text-align:center;margin-bottom:20px;}
-  .timer-card .label{font-size:0.72rem;text-transform:uppercase;letter-spacing:2px;color:var(--muted);}
-  .timer-card .time{font-size:4.5rem;font-weight:800;font-variant-numeric:tabular-nums;color:var(--green);
-    font-family:'Courier New',monospace;letter-spacing:2px;margin:6px 0;}
-  .timer-card .time.stopped{color:var(--muted);}
-  .timer-sums{display:flex;justify-content:center;gap:32px;margin-top:10px;font-size:0.9rem;}
-  .timer-sums .pen{color:var(--red);} .timer-sums .bon{color:var(--green);}
+  .timer-card{background:var(--glass);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+    border:1px solid var(--border);border-radius:18px;padding:26px;text-align:center;margin-bottom:20px;
+    box-shadow:0 22px 60px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.08);animation:rise .45s both;position:relative;}
+  .timer-card .label{font-size:.68rem;text-transform:uppercase;letter-spacing:2.5px;color:var(--muted);}
+  .timer-card .time{font-size:3.8rem;font-weight:800;font-variant-numeric:tabular-nums;color:#fff;
+    font-family:ui-monospace,'Courier New',monospace;letter-spacing:2px;margin:8px 0;text-shadow:0 0 26px rgba(255,255,255,.2);}
+  .timer-card .time.stopped{color:var(--muted);text-shadow:none;}
+  .station-pick{margin:14px auto 0;max-width:340px;text-align:left;}
+  .station-pick label{font-size:.72rem;color:var(--muted);display:block;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:1px;}
+  .station-pick select{width:100%;background:rgba(8,9,12,.6);border:1px solid var(--border);color:var(--ink);
+    padding:11px 13px;border-radius:10px;font-size:.9rem;outline:none;transition:all .2s;}
+  .station-pick select:focus{border-color:rgba(255,255,255,.5);box-shadow:0 0 0 3px rgba(255,255,255,.1);}
+  .timer-sums{display:flex;justify-content:center;gap:26px;margin-top:10px;font-size:.88rem;color:var(--muted);}
+  .timer-sums .pen{color:#fff;} .timer-sums .bon{color:var(--muted);}
   .controls{display:flex;gap:10px;margin-top:20px;}
-  .btn{padding:12px;border:none;border-radius:8px;font-weight:700;font-size:0.95rem;cursor:pointer;transition:all .15s;flex:1;}
+  .btn{padding:12px;border:none;border-radius:11px;font-weight:700;font-size:.92rem;cursor:pointer;transition:all .2s;flex:1;font-family:inherit;}
+  .btn:hover{transform:translateY(-2px);}
   .btn:active{transform:scale(.97);}
-  .btn-start{background:var(--green);color:#000;}
-  .btn-stop{background:var(--yellow);color:#000;}
-  .btn-dq{background:var(--red);color:#fff;}
+  .btn-start{background:linear-gradient(135deg,#fff,#b9c0cb);color:#0a0c12;box-shadow:0 8px 24px rgba(255,255,255,.2);}
+  .btn-stop{background:linear-gradient(135deg,#e9ebf0,#aeb4bf);color:#0a0c12;box-shadow:0 8px 24px rgba(255,255,255,.16);}
+  .btn-dq{background:linear-gradient(135deg,#4a4d55,#26282e);color:#f2f4f7;box-shadow:0 8px 24px rgba(0,0,0,.4);}
 
-  .section-title{font-size:0.75rem;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);margin:22px 0 10px;}
-  .pen-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;}
-  .btn-pen{background:var(--surface);border:1px solid var(--border);color:var(--text);padding:12px;border-radius:8px;
-    cursor:pointer;text-align:left;transition:all .2s;}
-  .btn-pen:hover{border-color:var(--red);background:#ff525210;}
-  .btn-pen .l{font-size:0.82rem;font-weight:600;}
-  .btn-pen .s{font-size:0.72rem;color:var(--red);margin-top:2px;}
+  .section-title{font-size:.72rem;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin:20px 0 10px;}
+  .pen-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;}
+  .btn-pen{background:var(--glass);border:1px solid var(--border);color:var(--ink);padding:13px;border-radius:12px;
+    cursor:pointer;text-align:left;transition:all .25s;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);font-family:inherit;}
+  .btn-pen:hover{border-color:rgba(255,255,255,.5);background:rgba(255,255,255,.1);transform:translateY(-2px);box-shadow:0 6px 20px rgba(255,255,255,.1);}
+  .btn-pen .l{font-size:.82rem;font-weight:600;}
+  .btn-pen .s{font-size:.72rem;color:#fff;margin-top:2px;}
 
-  .log{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;max-height:180px;overflow-y:auto;}
-  .log .item{display:flex;justify-content:space-between;font-size:0.8rem;padding:5px 2px;border-bottom:1px solid var(--border);}
+  .log{background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:12px;padding:12px;max-height:180px;
+    overflow-y:auto;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);}
+  .log .item{display:flex;justify-content:space-between;font-size:.8rem;padding:5px 2px;border-bottom:1px solid var(--border);}
   .log .item:last-child{border-bottom:none;}
-  .log .secs{font-weight:700;} .log .pen{color:var(--red);} .log .bon{color:var(--green);}
-  .log-empty{color:var(--muted);text-align:center;padding:14px;font-size:0.8rem;}
-  .log-half{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+  .log .secs{font-weight:700;} .log .pen{color:#fff;} .log .bon{color:var(--muted);}
+  .log-empty{color:var(--muted);text-align:center;padding:14px;font-size:.8rem;}
+  .log-half{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:22px;}
 
-  /* Mini game modal */
-  .overlay{position:fixed;inset:0;background:rgba(0,0,0,0.72);display:none;align-items:center;justify-content:center;z-index:100;}
-  .overlay.show{display:flex;}
-  .modal{background:var(--surface);border:1px solid var(--accent);border-radius:18px;width:min(640px,94vw);max-height:88vh;
-    overflow-y:auto;padding:28px;box-shadow:0 30px 80px rgba(0,0,0,.6);}
-  .modal h2{font-size:1.3rem;text-align:center;letter-spacing:1px;}
-  .modal .subhead{text-align:center;color:var(--muted);font-size:0.85rem;margin-top:6px;}
+  .overlay{position:fixed;inset:0;background:rgba(4,5,8,.75);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+    display:none;align-items:center;justify-content:center;z-index:100;padding:14px;}
+  .overlay.show{display:flex;animation:fadein .25s both;}
+  @keyframes fadein{from{opacity:0;}to{opacity:1;}}
+  .modal{background:rgba(255,255,255,.07);backdrop-filter:blur(26px);-webkit-backdrop-filter:blur(26px);
+    border:1px solid rgba(255,255,255,.35);border-radius:22px;width:min(640px,100%);max-height:90vh;
+    overflow-y:auto;padding:26px;box-shadow:0 30px 90px rgba(0,0,0,.65),0 0 60px rgba(255,255,255,.08);animation:rise .35s both;}
+  .modal h2{font-size:1.25rem;text-align:center;letter-spacing:1px;background:linear-gradient(90deg,#fff,#8a93a1);
+    -webkit-background-clip:text;background-clip:text;color:transparent;}
+  .modal .subhead{text-align:center;color:var(--muted);font-size:.85rem;margin-top:6px;}
   .game-chooser{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:20px;}
-  .game-btn{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:16px;cursor:pointer;transition:all .2s;}
-  .game-btn:hover{border-color:var(--accent);}
-  .game-btn.done{opacity:.5;border-color:var(--green);}
+  .game-btn{background:var(--glass);border:1px solid var(--border);border-radius:14px;padding:16px;cursor:pointer;transition:all .25s;}
+  .game-btn:hover{border-color:rgba(255,255,255,.5);transform:translateY(-2px);box-shadow:0 6px 22px rgba(255,255,255,.1);}
+  .game-btn.done{opacity:.5;border-color:rgba(255,255,255,.4);}
   .game-btn .gicon{font-size:1.6rem;}
-  .game-btn .gname{font-weight:600;margin-top:6px;font-size:0.92rem;}
-  .game-btn .gmeta{font-size:0.75rem;color:var(--muted);margin-top:3px;}
-  .game-btn .gok{display:none;color:var(--green);font-size:0.75rem;margin-top:4px;}
+  .game-btn .gname{font-weight:600;margin-top:6px;font-size:.92rem;}
+  .game-btn .gmeta{font-size:.75rem;color:var(--muted);margin-top:3px;}
+  .game-btn .gok{display:none;color:#fff;font-size:.75rem;margin-top:4px;}
   .game-btn.done .gok{display:block;}
 
   .gameplay{display:none;}
-  .gameplay.show{display:block;}
+  .gameplay.show{display:block;animation:rise .3s both;}
   .gp-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;}
   .gp-header .game-title{font-weight:700;font-size:1.05rem;}
-  .gp-header .progress{color:var(--muted);font-size:0.85rem;}
-  .big-answer{font-size:2.6rem;text-align:center;padding:30px;background:var(--surface2);border:1px solid var(--border);
-    border-radius:14px;margin-bottom:20px;font-weight:800;word-break:break-word;}
-  .big-answer.timer-mode{font-family:'Courier New',monospace;}
+  .gp-header .progress{color:var(--muted);font-size:.85rem;}
+  .big-answer{font-size:2.6rem;text-align:center;padding:30px;background:var(--glass);border:1px solid var(--border);
+    border-radius:16px;margin-bottom:20px;font-weight:800;word-break:break-word;box-shadow:inset 0 1px 0 rgba(255,255,255,.08);}
+  .big-answer.timer-mode{font-family:ui-monospace,monospace;}
   .answer-btns{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;}
-  .ans-btn{padding:22px;border:none;border-radius:12px;font-weight:800;font-size:1.1rem;cursor:pointer;transition:transform .1s;}
+  .ans-btn{padding:22px;border:none;border-radius:14px;font-weight:800;font-size:1.1rem;cursor:pointer;transition:all .15s;font-family:inherit;}
+  .ans-btn:hover{transform:translateY(-2px);}
   .ans-btn:active{transform:scale(.97);}
-  .ans-correct{background:var(--green);color:#000;}
-  .ans-wrong{background:var(--red);color:#fff;}
-  .wide-btn{width:100%;padding:16px;border:none;border-radius:10px;font-weight:700;font-size:1rem;cursor:pointer;}
-  .btn-answered{background:var(--accent);color:#fff;}
+  .ans-correct{background:linear-gradient(135deg,#fff,#c3c9d2);color:#0a0c12;box-shadow:0 8px 26px rgba(255,255,255,.2);}
+  .ans-wrong{background:linear-gradient(135deg,#565a63,#26282e);color:#f2f4f7;box-shadow:0 8px 26px rgba(0,0,0,.4);}
+  .wide-btn{width:100%;padding:16px;border:none;border-radius:12px;font-weight:700;font-size:1rem;cursor:pointer;transition:all .2s;font-family:inherit;}
+  .wide-btn:hover{transform:translateY(-2px);}
+  .btn-answered{background:linear-gradient(135deg,#fff,#b9c0cb);color:#0a0c12;box-shadow:0 8px 26px rgba(255,255,255,.2);}
+
+  .run-actions{display:flex;flex-direction:column;gap:10px;margin-top:16px;padding-top:14px;border-top:1px solid var(--border);}
+  .run-actions .wide-btn{font-size:.9rem;padding:13px;}
+  .run-actions .l2-note{background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:12px;
+    padding:12px 14px;font-size:.82rem;color:var(--muted);text-align:center;}
 
   .dsi-timer-wrap{text-align:center;margin:8px 0 16px;}
-  .dsi-timer{font-size:4rem;font-weight:800;font-family:'Courier New',monospace;}
-  .dsi-timer.low{color:var(--red);animation:blink 1s infinite;}
-  @keyframes blink{0%,100%{opacity:1;}50%{opacity:.5;}}
-  .dsi-word{font-size:1.5rem;text-align:center;padding:18px;background:var(--surface2);border:1px solid var(--border);border-radius:12px;margin-bottom:16px;font-weight:700;}
-  .dsi-word span{color:var(--accent);}
+  .dsi-timer{font-size:4rem;font-weight:800;font-family:ui-monospace,monospace;text-shadow:0 0 22px rgba(255,255,255,.25);}
+  .dsi-timer.low{color:#fff;animation:blink 1s infinite;}
+  @keyframes blink{0%,100%{opacity:1;}50%{opacity:.45;}}
+  .dsi-word{font-size:1.5rem;text-align:center;padding:18px;background:var(--glass);border:1px solid var(--border);
+    border-radius:14px;margin-bottom:16px;font-weight:700;}
+  .dsi-word span{color:#fff;}
 
   .mini-summary{text-align:center;padding:10px;}
-  .mini-summary .row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:0.9rem;}
-  .mini-summary .done-msg{color:var(--green);font-size:1rem;margin-bottom:16px;font-weight:700;}
+  .mini-summary .row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:.9rem;}
+  .mini-summary .done-msg{color:#fff;font-size:1rem;margin-bottom:16px;font-weight:700;}
 
-  .toast{position:fixed;bottom:24px;right:24px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;
-    padding:12px 20px;font-size:0.85rem;transform:translateY(120px);opacity:0;transition:all .3s;z-index:200;}
-  .toast.show{transform:translateY(0);opacity:1;}
-  .toast.success{border-color:var(--green);color:var(--green);}
-  .toast.error{border-color:var(--red);color:var(--red);}
-  .toast.info{border-color:var(--accent);color:var(--accent);}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(120px);background:rgba(255,255,255,.1);
+    backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid var(--border);border-radius:12px;
+    padding:13px 22px;font-size:.85rem;opacity:0;transition:all .35s;z-index:200;box-shadow:0 14px 40px rgba(0,0,0,.5);}
+  .toast.show{transform:translateX(-50%) translateY(0);opacity:1;}
+  .toast.success{border-color:rgba(255,255,255,.55);color:#fff;}
+  .toast.error{border-color:rgba(255,255,255,.55);color:#fff;}
+  .toast.info{border-color:rgba(255,255,255,.55);color:#fff;}
+
+  @media (max-width:860px){
+    header{padding:10px 14px;}
+    header h1{font-size:.9rem;white-space:nowrap;}
+    .nav{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+    .nav::-webkit-scrollbar{display:none;}
+    .nav-link{flex-shrink:0;padding:7px 10px;font-size:.72rem;}
+    .who{display:none;}
+    .layout{grid-template-columns:1fr;}
+    .sidebar{border-right:none;border-bottom:1px solid var(--border);max-height:none;padding:14px;}
+    .sidebar h2{display:none;}
+    .part-list{flex-direction:row;overflow-x:auto;padding-bottom:6px;-webkit-overflow-scrolling:touch;}
+    .p-card{min-width:150px;flex-shrink:0;}
+    .p-card:hover{transform:translateY(-2px);}
+    .main{padding:16px 14px 40px;}
+    .timer-card{padding:20px 14px;}
+    .timer-card .time{font-size:2.6rem;}
+    .timer-sums{gap:14px;flex-wrap:wrap;}
+    .log-half{grid-template-columns:1fr;}
+    .empty{margin-top:12vh;}
+  }
+  @media (max-width:480px){
+    .timer-card .time{font-size:2.2rem;}
+    .game-chooser{grid-template-columns:1fr 1fr;gap:8px;}
+    .answer-btns{grid-template-columns:1fr;gap:10px;}
+    .pen-grid{grid-template-columns:1fr 1fr;}
+    .sel-head h2{font-size:1.1rem;}
+    .big-answer{font-size:2rem;padding:20px;}
+  }
 </style>
 </head>
 <body>
 <header>
-  <h1>BUILD <span>BACK</span> — Station</h1>
+  <h1>BUILD BACK — Station</h1>
   <div class="nav">
-    <span style="font-size:.82rem;color:var(--muted)">👤 <span id="my-name"></span> · <span id="my-station"></span></span>
-    <a href="/competitors" target="_blank" class="nav-link">➕ Competitor</a>
-    <a href="/projector" target="_blank" class="nav-link proj">📊 Projector</a>
-    <a href="/admin" target="_blank" class="nav-link" id="admin-link" style="display:none">⚙️ Admin</a>
+    <span class="who">👤 <span id="my-name"></span> · <span id="my-station"></span></span>
+    <a href="/competitors" class="nav-link">➕ Competitor</a>
+    <a href="/projector" class="nav-link" id="nav-leader">📊 Leaderboard</a>
+    <a href="/projector" class="nav-link proj" id="nav-proj" style="display:none">📊 Projector</a>
+    <a href="/admin" class="nav-link" id="admin-link" style="display:none">⚙️ Admin</a>
     <button class="nav-link" style="border:none;cursor:pointer" onclick="logout()">Logout</button>
   </div>
 </header>
@@ -150,14 +217,13 @@
   </main>
 </div>
 
-<!-- Mini game modal -->
 <div class="overlay" id="mg-overlay">
   <div class="modal">
     <h2>🎮 Mini Games</h2>
     <div class="subhead">Auto-triggered during the build. Complete games to subtract time.</div>
     <div class="game-chooser" id="game-chooser"></div>
     <div style="margin-top:16px;text-align:center;">
-      <button class="wide-btn" style="background:var(--surface2);color:var(--muted);border:1px solid var(--border)" onclick="closeMinigames()">Close mini games (back to timer)</button>
+      <button class="wide-btn" style="background:var(--glass2);color:var(--muted);border:1px solid var(--border)" onclick="closeMinigames()">Close mini games (back to timer)</button>
     </div>
 
     <div class="gameplay" id="gameplay">
@@ -167,7 +233,7 @@
       </div>
       <div id="gp-body"></div>
       <div style="margin-top:14px;text-align:center;">
-        <button class="wide-btn" id="gp-close" style="background:var(--surface2);color:var(--muted);border:1px solid var(--border)" onclick="closeGameplay()">Done — back to games</button>
+        <button class="wide-btn" id="gp-close" style="background:var(--glass2);color:var(--muted);border:1px solid var(--border)" onclick="closeGameplay()">Done — back to games</button>
       </div>
     </div>
   </div>
@@ -180,6 +246,13 @@ const socket=io();
 const MINIGAMES = {{ minigames|safe }};
 const POPUP_AT = {{ popup_at }};
 const PENALTIES = {{ penalties|safe }};
+const STATIONS = {{ stations|safe }};
+const CONFIG = {{ config|safe }} || {};
+const CATEGORIES = ['PC','Laptop']; // run categories
+const CAT_LEVEL = {PC:'Level 1', Laptop:'Level 2'};
+const LEVEL2_CUTOFF = CONFIG.level2_cutoff_secs||180;
+const LEVELS = Object.keys(STATIONS);
+const LEVEL_OF = Object.keys(STATIONS).reduce((m,lvl)=>{STATIONS[lvl].forEach(s=>m[s]=lvl);return m;},{});
 
 let me={}, participants=[], selectedRun=null, selectedPart=null;
 let timerIV=null, isRunning=false, runStart=null;
@@ -187,6 +260,7 @@ let runPenalty=0, runBonus=0;
 let mgShowStartedAt=null, mgShown=false;
 let gameplay=null; // {game, cfg, idx, results}
 let dsiIV=null, dsiElapsed=0, dsiWord=null;
+let pausedSecs=0, pausedAt=null, paused=false;
 
 socket.on('leaderboard_update', loadAll);
 
@@ -194,7 +268,12 @@ async function init(){
   const r=await fetch('/api/auth/me'); const d=await r.json(); me=d.user;
   document.getElementById('my-name').textContent=me.display_name||me.username;
   document.getElementById('my-station').textContent=me.station||'';
-  if(me.role!=='volunteer') document.getElementById('admin-link').style.display='inline-block';
+  const isStaff=me.role!=='volunteer';
+  if(isStaff){
+    document.getElementById('admin-link').style.display='inline-block';
+    document.getElementById('nav-proj').style.display='inline-block';
+    document.getElementById('nav-leader').style.display='none';
+  }
   loadAll();
 }
 async function loadAll(){ await loadParticipants(); refreshTimerOnly(); }
@@ -212,7 +291,8 @@ function renderList(){
     const cat=p.runs.map(r=>r.status==='running'?r.category:null).find(Boolean);
     let statusTag='';
     if(p.runs.some(r=>r.status==='running')) statusTag='<span class="tag tag-running">Running</span>';
-    else if(p.runs.every(r=>r.status==='finished')) statusTag='<span class="tag tag-finished">Done</span>';
+    else if(CATEGORIES.every(cat=>p.runs.some(r=>r.category===cat&&r.status==='finished'&&!r.disqualified)))
+      statusTag='<span class="tag tag-finished">Done</span>';
     const modeTag=`<span class="tag ${p.play_mode==='team'?'tag-team':'tag-ind'}">${p.play_mode==='team'?'Team':'Solo'}</span>`;
     return `<div class="p-card ${isSel?'selected':''}" onclick="selectParticipant(${p.id})">
       <div class="name"><span>${esc(p.name)}</span>${modeTag}</div>
@@ -231,21 +311,29 @@ function selectParticipant(pid){
 }
 function renderRunPicker(p){
   const main=document.getElementById('main');
+  const byCat={};
+  p.runs.forEach(r=>{ (byCat[r.category]=byCat[r.category]||[]).push(r); });
+  const blocks=CATEGORIES.map(cat=>{
+    const runs=byCat[cat]||[];
+    return `<div style="margin-bottom:18px">
+      <div class="section-title">${cat==='PC'?'🖥️':'💻'} ${cat} Build ${cat==='PC'?'(Level 1)':'(Level 2)'} — attempts</div>
+    <div class="pen-grid" style="grid-template-columns:1fr 1fr;gap:14px;">
+      ${runs.map((r,i)=>{
+        const done=r.status==='finished';
+        const st=r.station?' — '+r.station:'';
+        return `<button class="btn-pen" style="padding:26px;text-align:left" onclick="renderControl(${r.id},${p.id})">
+          <div class="l" style="font-size:1.15rem">${cat==='PC'?'🖥️':'💻'} ${cat} Build · Attempt ${i+1}</div>
+          <div class="s" style="color:var(--muted)">${done?('✔ Finished — '+fmt(r.final_seconds)):(r.status==='running'?'Running…':('Not started'+st))}</div>
+        </button>`;
+      }).join('')||'<div class="log-empty">No runs</div>'}
+    </div></div>`;
+  });
   main.innerHTML=`
     <div class="sel-head">
       <h2>${esc(p.name)}</h2> ${p.mate?`<span class="tag tag-team">Teammate: ${esc(p.mate)}</span>`:''}
       <span class="station">${p.play_mode==='team'?'Team':'Individual'}</span>
     </div>
-    <div class="pen-grid" style="grid-template-columns:1fr 1fr;gap:14px;">
-      ${p.runs.map(r=>{
-        const done=r.status==='finished';
-        const cat=r.category;
-        return `<button class="btn-pen" style="padding:28px;text-align:left" onclick="renderControl(${r.id},${p.id})">
-          <div class="l" style="font-size:1.2rem">${cat==='PC'?'🖥️':'💻'} ${cat} Build</div>
-          <div class="s" style="color:var(--muted)">${done?('✔ Finished — '+fmt(r.final_seconds)):(r.status==='running'?'Running…':'Not started')}</div>
-        </button>`;
-      }).join('')}
-    </div>`;
+    ${blocks[0]||''}${renderL2Button(p)}${blocks[1]||''}`;
 }
 function renderControl(runId,pid){
   // pid may be object (from selectParticipant) or number
@@ -274,6 +362,13 @@ async function renderRunControl(){
     <div class="timer-card">
       <div class="label">${run.category} Build — Timer</div>
       <div class="time ${isFin?'stopped':''}" id="timer-big">${isFin?fmt(run.final_seconds - run.penalty_seconds + run.bonus_seconds):'00:00.0'}</div>
+      <div class="station-pick" id="station-pick" ${isRun||isFin?'style="display:none"':''}>
+        <label>Station for this run</label>
+        <select id="station-select">
+          <option value="">Select station…</option>
+          ${(STATIONS[CAT_LEVEL[run.category]]||[]).map(s=>`<option value="${s}" ${s===run.station?'selected':''}>${s}</option>`).join('')}
+        </select>
+      </div>
       <div class="timer-sums">
         <span>Raw <span id="sum-raw">${isFin?fmt(run.raw_seconds):'0:00.0'}</span></span>
         <span class="pen">Penalties +<span id="sum-pen">${runPenalty||0}</span>s</span>
@@ -287,6 +382,11 @@ async function renderRunControl(){
         )+`<button class="btn btn-dq" onclick="dqRun()">🚫 DQ</button>`:''
         }
       </div>
+      ${isRun?`
+      <div style="margin-top:14px">
+        <button class="wide-btn btn-answered" onclick="openMinigames()">🎮 Mini Games ${mgShown?'(2:30 auto-open done)':'(open now)'}</button>
+      </div>`:''}
+      ${isFin&&!isDQ?renderRunActions(run,p):''}
     </div>
 
     <div class="section-title">Add Penalty (+seconds)</div>
@@ -294,7 +394,7 @@ async function renderRunControl(){
       ${PENALTIES.map(pn=>`<button class="btn-pen" onclick="addPenalty('${escAttr(pn.key)}')"><div class="l">${pn.label}</div><div class="s">+${pn.secs}s</div></button>`).join('')}
     </div>
 
-    <div class="log-half" style="margin-top:22px">
+    <div class="log-half">
       <div>
         <div class="section-title">Penalty Log</div>
         <div class="log" id="pen-log"><div class="log-empty">—</div></div>
@@ -305,6 +405,35 @@ async function renderRunControl(){
       </div>
     </div>`;
   if(isRun) startTiming();
+}
+function renderRunActions(run,p){
+  const parts=[];
+  const isPC=run.category==='PC';
+  const catLabel=isPC?'PC (Level 1)':'Laptop (Level 2)';
+  // next run: for PC, allow PC or Laptop; for Laptop, only Laptop
+  const validNext=p.runs.filter(r=>r.status==='waiting'&&(isPC||r.category==='Laptop'));
+  const nxt=validNext[0];
+  if(nxt){
+    const nCat=nxt.category==='PC'?'PC (Level 1)':'Laptop (Level 2)';
+    parts.push(`<button class="wide-btn btn-answered" onclick="renderControl(${nxt.id},${p.id})">➡️ Move to next run — ${nCat}</button>`);
+  } else {
+    parts.push(`<button class="wide-btn" style="background:var(--glass2);color:var(--muted);border:1px solid var(--border)" disabled>✔ All runs used</button>`);
+  }
+  // Level 2 eligibility (penalties NOT counted — raw time only) — only after PC run
+  if(isPC){
+    const best=pcBest(p);
+    const lapW=p.runs.some(r=>r.category==='Laptop'&&!['finished','running'].includes(r.status));
+    if(best&&lapW){
+      if(best.raw_seconds<=LEVEL2_CUTOFF){
+        parts.push(`<button class="wide-btn btn-answered" onclick="moveToLevel2(${p.id})">🚀 Move to Level 2 — eligible (raw ${fmt(best.raw_seconds)}s)</button>`);
+      } else {
+        parts.push(`<div class="l2-note">⛔ Not eligible for Level 2 — raw time ${fmt(best.raw_seconds)}s exceeds cutoff ${LEVEL2_CUTOFF}s (penalties not counted)</div>`);
+      }
+    }
+  }
+  // stop / go back to the participant's run picker
+  parts.push(`<button class="wide-btn" style="background:var(--glass2);color:var(--muted);border:1px solid var(--border)" onclick="renderRunPicker(selectedPart)">🛑 Stop ${catLabel} run — back to ${esc(p.name)}'s runs</button>`);
+  return `<div class="run-actions">${parts.join('')}</div>`;
 }
 async function loadLogs(runId){
   const [pen,bon]=await Promise.all([
@@ -318,29 +447,49 @@ async function loadLogs(runId){
 }
 
 async function startRun(){
-  const res=await fetch('/api/run/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({run_id:selectedRun.id})});
+  const sel=document.getElementById('station-select');
+  const picked=sel?sel.value:'';
+  const station=selectedRun.station||picked;
+  if(!station) return showToast('Assign a station for this run first','error');
+  const res=await fetch('/api/run/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({run_id:selectedRun.id,station})});
   const d=await res.json(); if(!d.ok) return showToast(d.error,'error');
-  runPenalty=0;runBonus=0;mgShown=false;
-  startTiming(); loadParticipants(); showToast('Timer started','success');
+  me.station=selectedRun.station||station;
+  const ms=document.getElementById('my-station'); if(ms) ms.textContent=me.station;
+  runPenalty=0;runBonus=0;mgShown=false;pausedSecs=0;pausedAt=null;paused=false;
+  selectedRun.status='running';
+  startTiming(); renderRunControl(); loadParticipants(); showToast('Timer started','success');
 }
 function startTiming(){
   stopTiming();
   isRunning=true;
-  runStart=Date.now()-( (selectedRun.raw_seconds||0)*1000 );
+  pausedSecs=selectedRun.paused_seconds||0;
+  paused=!!selectedRun.paused_start;
+  pausedAt=paused?Date.now():null;
+  let baseSecs=0;
+  if(selectedRun.start_time){
+    baseSecs=(Date.now()/1000)-selectedRun.start_time - pausedSecs;
+    if(paused) baseSecs=Math.max(0,(selectedRun.paused_start-selectedRun.start_time)-pausedSecs);
+  }
+  runStart=Date.now()-(baseSecs*1000);
   timerIV=setInterval(()=>{
-    const el=document.getElementById('timer-big'); if(!el)return;
-    el.textContent=fmt((Date.now()-runStart)/1000);
-    const elapsed=(Date.now()-runStart)/1000;
-    if(!mgShown && elapsed>=POPUP_AT && me.role!=='admin'){ openMinigames(); }
+    const elapsed=currentElapsed();
+    const el=document.getElementById('timer-big'); if(el) el.textContent=fmt(elapsed);
+    if(!mgShown && !paused && elapsed>=POPUP_AT && me.role!=='admin'){ openMinigames(); }
   },100);
 }
+function currentElapsed(){
+  const base=(Date.now()-runStart)/1000 - pausedSecs;
+  if(pausedAt) return base - ((Date.now()-pausedAt)/1000);
+  return base;
+}
 function stopTiming(){ if(timerIV)clearInterval(timerIV); isRunning=false; }
-function refreshTimerOnly(){ if(isRunning){const el=document.getElementById('timer-big'); if(el)el.textContent=fmt((Date.now()-runStart)/1000);} }
+function refreshTimerOnly(){ if(isRunning){const el=document.getElementById('timer-big'); if(el){const t=currentElapsed(); el.textContent=fmt(t);} } }
 async function stopRun(){
+  if(paused){ await resumeRun(); }
   stopTiming();
   const res=await fetch('/api/run/stop',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({run_id:selectedRun.id})});
   const d=await res.json();
-  if(d.ok){ showToast(`Finished: ${fmt(d.final)}`,'success'); selectedRun.status='finished'; renderRunControl(); loadParticipants(); }
+  if(d.ok){ showToast(`Finished: ${fmt(d.final)}`,'success'); selectedRun.status='finished'; selectedRun.final_seconds=d.final; renderRunControl(); loadParticipants(); }
   else showToast(d.error,'error');
 }
 async function addPenalty(v){
@@ -360,9 +509,26 @@ function updateSums(){
 
 /* ── Mini games ── */
 let currentGames=[];
+async function pauseRun(){
+  if(!selectedRun || selectedRun.status!=='running' || paused) return;
+  const res=await fetch('/api/run/pause',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({run_id:selectedRun.id})});
+  const d=await res.json(); if(!d.ok)return;
+  paused=true; pausedAt=Date.now();
+  const el=document.getElementById('timer-big');
+  if(el) el.textContent=fmt(currentElapsed());
+  if(selectedRun.paused_start===undefined) selectedRun.paused_start=Date.now()/1000;
+}
+async function resumeRun(){
+  if(!selectedRun || selectedRun.status!=='running' || !paused) return;
+  const res=await fetch('/api/run/resume',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({run_id:selectedRun.id})});
+  const d=await res.json(); if(!d.ok)return;
+  pausedSecs+=((Date.now()-pausedAt)/1000);
+  paused=false; pausedAt=null;
+}
 function openMinigames(){
   if(!selectedRun || selectedRun.status!=='running') return;
   mgShown=true;
+  pauseRun();
   const isTeam=selectedPart.play_mode==='team';
   currentGames=Object.keys(MINIGAMES).filter(k=>!MINIGAMES[k].teams_only||isTeam);
   const overlay=document.getElementById('mg-overlay');
@@ -436,7 +602,7 @@ function renderDSI(){
       <div style="color:var(--muted);font-size:0.8rem;margin-top:4px">Teammate guesses — tap <b>Answered</b> when correct</div>
     </div>
     <button class="wide-btn btn-answered" onclick="dsiAnswered()">✓ Answered (correct guess)</button>
-    <div style="margin-top:10px;text-align:center"><button class="wide-btn" style="background:var(--surface2);color:var(--muted);border:1px solid var(--border)" onclick="dsiTimeout()">Skip (timeout)</button></div>`;
+    <div style="margin-top:10px;text-align:center"><button class="wide-btn" style="background:var(--glass2);color:var(--muted);border:1px solid var(--border)" onclick="dsiTimeout()">Skip (timeout)</button></div>`;
   startDSITimer();
 }
 const GENERIC_WORDS=['Motherboard','Processor','RAM','Graphics Card','SSD','Fan','Port','Keyboard','Battery','Monitor'];
@@ -487,11 +653,46 @@ function closeGameplay(){
 }
 function closeMinigames(){
   clearInterval(dsiIV);
+  resumeRun();
   document.getElementById('mg-overlay').classList.remove('show');
   document.getElementById('gameplay').classList.remove('show');
   document.getElementById('game-chooser').style.display='grid';
 }
 
+/* ── Level 2 movement ── */
+function pcBest(p){
+  return (p.runs||[]).filter(r=>r.category==='PC'&&r.status==='finished'&&!r.disqualified)
+    .sort((a,b)=>a.raw_seconds-b.raw_seconds)[0];
+}
+function renderL2Button(p){
+  const best=pcBest(p);
+  if(!best) return '';
+  if(best.raw_seconds>LEVEL2_CUTOFF) return '<div class="section-title">⛔ Level 1 time exceeded Level 2 cutoff — cannot move up</div>';
+  const lapW=p.runs.some(r=>r.category==='Laptop'&&!['finished','running'].includes(r.status));
+  if(!lapW) return '';
+  return `<div class="section-title" style="margin-top:10px">Level 2</div>
+    <button class="wide-btn btn-answered" onclick="moveToLevel2(${p.id})">🚀 Move to Level 2 (raw ${fmt(best.raw_seconds)} ≤ ${LEVEL2_CUTOFF}s — penalties not counted)</button>`;
+}
+function moveToLevel2(pid){
+  const p=participants.find(x=>x.id===pid); if(!p) return;
+  const lap=p.runs.find(r=>r.category==='Laptop'&&!['finished','running'].includes(r.status));
+  if(!lap) return showToast('No waiting Laptop run','error');
+  fetch('/api/stations/free').then(r=>r.json()).then(d=>{
+    const freeL2=(d.find(x=>x.level==='Level 2')||{stations:[]}).stations;
+    if(!freeL2.length) return showToast('No free Level 2 station','error');
+    const html=`<div class="sel-head"><h2>Assign Level 2 station</h2></div>
+      <div class="pen-grid">${freeL2.map(s=>`<button class="btn-pen" onclick="assignL2(${pid},'${s}')"><div class="l" style="text-align:center">${s}</div></button>`).join('')}</div>`;
+    document.getElementById('main').innerHTML=html;
+  }).catch(()=>showToast('Failed to load free stations','error'));
+}
+async function assignL2(pid,code){
+  const res=await fetch('/api/run/assign-station',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({participant_id:pid,category:'Laptop',station:code})});
+  const d=await res.json();
+  showToast(d.ok?`Assigned ${code} — now on projector`:(d.error||'Failed'), d.ok?'success':'error');
+  loadParticipants();
+  const p=participants.find(x=>x.id===pid); if(p) renderRunPicker(p);
+}
 async function logout(){ await fetch('/api/auth/logout',{method:'POST'}); window.location.href='/login'; }
 
 function fmt(s){ if(s===null||s===undefined)return '0:00.0'; s=Math.max(0,s);

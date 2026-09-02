@@ -406,22 +406,21 @@ async function renderRunControl(){
     </div>`;
   if(isRun) startTiming();
 }
-function nextWaitingRun(p){
-  return (p.runs||[]).find(r=>r.status==='waiting');
-}
 function renderRunActions(run,p){
   const parts=[];
-  const nxt=nextWaitingRun(p);
-  const isSelf=run.category==='PC';
-  // move to the next run (next attempt / Level 2) without going back to picker
+  const isPC=run.category==='PC';
+  const catLabel=isPC?'PC (Level 1)':'Laptop (Level 2)';
+  // next run: for PC, allow PC or Laptop; for Laptop, only Laptop
+  const validNext=p.runs.filter(r=>r.status==='waiting'&&(isPC||r.category==='Laptop'));
+  const nxt=validNext[0];
   if(nxt){
-    const catLabel=nxt.category==='PC'?'PC (Level 1)':'Laptop (Level 2)';
-    parts.push(`<button class="wide-btn btn-answered" onclick="renderControl(${nxt.id},${p.id})">➡️ Move to next run — ${catLabel}</button>`);
+    const nCat=nxt.category==='PC'?'PC (Level 1)':'Laptop (Level 2)';
+    parts.push(`<button class="wide-btn btn-answered" onclick="renderControl(${nxt.id},${p.id})">➡️ Move to next run — ${nCat}</button>`);
   } else {
     parts.push(`<button class="wide-btn" style="background:var(--glass2);color:var(--muted);border:1px solid var(--border)" disabled>✔ All runs used</button>`);
   }
-  // Level 2 eligibility (penalties NOT counted — raw time only)
-  if(isSelf){
+  // Level 2 eligibility (penalties NOT counted — raw time only) — only after PC run
+  if(isPC){
     const best=pcBest(p);
     const lapW=p.runs.some(r=>r.category==='Laptop'&&!['finished','running'].includes(r.status));
     if(best&&lapW){
@@ -433,7 +432,7 @@ function renderRunActions(run,p){
     }
   }
   // stop / go back to the participant's run picker
-  parts.push(`<button class="wide-btn" style="background:var(--glass2);color:var(--muted);border:1px solid var(--border)" onclick="renderRunPicker(selectedPart)">🛑 Stop PC run — back to ${esc(p.name)}'s runs</button>`);
+  parts.push(`<button class="wide-btn" style="background:var(--glass2);color:var(--muted);border:1px solid var(--border)" onclick="renderRunPicker(selectedPart)">🛑 Stop ${catLabel} run — back to ${esc(p.name)}'s runs</button>`);
   return `<div class="run-actions">${parts.join('')}</div>`;
 }
 async function loadLogs(runId){

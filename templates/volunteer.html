@@ -333,8 +333,7 @@ function renderRunPicker(p){
       <h2>${esc(p.name)}</h2> ${p.mate?`<span class="tag tag-team">Teammate: ${esc(p.mate)}</span>`:''}
       <span class="station">${p.play_mode==='team'?'Team':'Individual'}</span>
     </div>
-    ${blocks.join('')}
-    ${renderL2Button(p)}`;
+    ${blocks[0]||''}${renderL2Button(p)}${blocks[1]||''}`;
 }
 function renderControl(runId,pid){
   // pid may be object (from selectParticipant) or number

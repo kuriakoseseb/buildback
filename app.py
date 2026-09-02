@@ -298,6 +298,9 @@ def login():
 @login_required
 def home():
     u = current_user()
+    if not u:
+        session.clear()
+        return redirect(url_for('login'))
     if u['role'] == 'volunteer':
         return redirect(url_for('volunteer_page'))
     return redirect(url_for('admin_page'))
@@ -323,9 +326,13 @@ def competitors_page():
 @login_required
 @roles_required('super', 'admin')
 def admin_page():
+    u = current_user()
+    if not u:
+        session.clear()
+        return redirect(url_for('login'))
     return render_template('admin.html', minigames=json.dumps(MINIGAMES),
                            popup_at=MINIGAME_POPUP_AT, penalties=json.dumps(get_settings()),
-                           is_admin=(current_user()['role'] == 'admin'))
+                           is_admin=(u['role'] == 'admin'))
 
 
 @app.route('/projector', methods=['GET'])

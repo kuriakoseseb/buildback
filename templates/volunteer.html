@@ -138,6 +138,11 @@
   .wide-btn:hover{transform:translateY(-2px);}
   .btn-answered{background:linear-gradient(135deg,#fff,#b9c0cb);color:#0a0c12;box-shadow:0 8px 26px rgba(255,255,255,.2);}
 
+  .run-actions{display:flex;flex-direction:column;gap:10px;margin-top:16px;padding-top:14px;border-top:1px solid var(--border);}
+  .run-actions .wide-btn{font-size:.9rem;padding:13px;}
+  .run-actions .l2-note{background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:12px;
+    padding:12px 14px;font-size:.82rem;color:var(--muted);text-align:center;}
+
   .dsi-timer-wrap{text-align:center;margin:8px 0 16px;}
   .dsi-timer{font-size:4rem;font-weight:800;font-family:ui-monospace,monospace;text-shadow:0 0 22px rgba(255,255,255,.25);}
   .dsi-timer.low{color:#fff;animation:blink 1s infinite;}
@@ -382,6 +387,7 @@ async function renderRunControl(){
       <div style="margin-top:14px">
         <button class="wide-btn btn-answered" onclick="openMinigames()">🎮 Mini Games ${mgShown?'(2:30 auto-open done)':'(open now)'}</button>
       </div>`:''}
+      ${isFin&&!isDQ?renderRunActions(run,p):''}
     </div>
 
     <div class="section-title">Add Penalty (+seconds)</div>
@@ -400,6 +406,36 @@ async function renderRunControl(){
       </div>
     </div>`;
   if(isRun) startTiming();
+}
+function nextWaitingRun(p){
+  return (p.runs||[]).find(r=>r.status==='waiting');
+}
+function renderRunActions(run,p){
+  const parts=[];
+  const nxt=nextWaitingRun(p);
+  const isSelf=run.category==='PC';
+  // move to the next run (next attempt / Level 2) without going back to picker
+  if(nxt){
+    const catLabel=nxt.category==='PC'?'PC (Level 1)':'Laptop (Level 2)';
+    parts.push(`<button class="wide-btn btn-answered" onclick="renderControl(${nxt.id},${p.id})">➡️ Move to next run — ${catLabel}</button>`);
+  } else {
+    parts.push(`<button class="wide-btn" style="background:var(--glass2);color:var(--muted);border:1px solid var(--border)" disabled>✔ All runs used</button>`);
+  }
+  // Level 2 eligibility (penalties NOT counted — raw time only)
+  if(isSelf){
+    const best=pcBest(p);
+    const lapW=p.runs.some(r=>r.category==='Laptop'&&!['finished','running'].includes(r.status));
+    if(best&&lapW){
+      if(best.raw_seconds<=LEVEL2_CUTOFF){
+        parts.push(`<button class="wide-btn btn-answered" onclick="moveToLevel2(${p.id})">🚀 Move to Level 2 — eligible (raw ${fmt(best.raw_seconds)}s)</button>`);
+      } else {
+        parts.push(`<div class="l2-note">⛔ Not eligible for Level 2 — raw time ${fmt(best.raw_seconds)}s exceeds cutoff ${LEVEL2_CUTOFF}s (penalties not counted)</div>`);
+      }
+    }
+  }
+  // stop / go back to the participant's run picker
+  parts.push(`<button class="wide-btn" style="background:var(--glass2);color:var(--muted);border:1px solid var(--border)" onclick="renderRunPicker(selectedPart)">🛑 Stop PC run — back to ${esc(p.name)}'s runs</button>`);
+  return `<div class="run-actions">${parts.join('')}</div>`;
 }
 async function loadLogs(runId){
   const [pen,bon]=await Promise.all([
@@ -628,16 +664,16 @@ function closeMinigames(){
 /* ── Level 2 movement ── */
 function pcBest(p){
   return (p.runs||[]).filter(r=>r.category==='PC'&&r.status==='finished'&&!r.disqualified)
-    .sort((a,b)=>a.final_seconds-b.final_seconds)[0];
+    .sort((a,b)=>a.raw_seconds-b.raw_seconds)[0];
 }
 function renderL2Button(p){
   const best=pcBest(p);
   if(!best) return '';
-  if(best.final_seconds>LEVEL2_CUTOFF) return '<div class="section-title">⛔ Level 1 time exceeded Level 2 cutoff — cannot move up</div>';
+  if(best.raw_seconds>LEVEL2_CUTOFF) return '<div class="section-title">⛔ Level 1 time exceeded Level 2 cutoff — cannot move up</div>';
   const lapW=p.runs.some(r=>r.category==='Laptop'&&!['finished','running'].includes(r.status));
   if(!lapW) return '';
   return `<div class="section-title" style="margin-top:10px">Level 2</div>
-    <button class="wide-btn btn-answered" onclick="moveToLevel2(${p.id},${best.final_seconds})">🚀 Move to Level 2 (PC ${fmt(best.final_seconds)} ≤ ${LEVEL2_CUTOFF}s)</button>`;
+    <button class="wide-btn btn-answered" onclick="moveToLevel2(${p.id})">🚀 Move to Level 2 (raw ${fmt(best.raw_seconds)} ≤ ${LEVEL2_CUTOFF}s — penalties not counted)</button>`;
 }
 function moveToLevel2(pid){
   const p=participants.find(x=>x.id===pid); if(!p) return;

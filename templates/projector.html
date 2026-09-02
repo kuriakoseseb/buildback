@@ -58,6 +58,9 @@
   .st-timer.final{animation:flashTime 1.2s ease-in-out infinite;}
   @keyframes flashTime{0%,100%{opacity:1;}50%{opacity:.2;}}
   .st-idle{font-size:.75rem;color:var(--muted);margin-top:10px;font-style:italic;}
+  .st-last{opacity:.45;font-weight:500;}
+  .st-last-time{opacity:.35;font-size:1.1rem;}
+  .st-flag.idle{background:rgba(255,255,255,.06);color:var(--muted);border:1px solid var(--border);}
   @keyframes blink{0%,100%{opacity:1;}50%{opacity:.4;}}
 
   /* tables */
@@ -171,11 +174,13 @@ function stationCard(s){
   } else if(r&&r.status==='finished'){
     const since=(Date.now()/1000)-(r.end_time||0);
     if(since<FLASH_SECS){
-      body=`<div class="st-name">${esc(r.name)}</div><div class="st-cat">${r.category}</div>
+      body=`<div class="st-name">${esc(r.name)}</div><div class="st-cat">${r.category}${r.play_mode==='team'&&r.mate?` · 👥 ${esc(r.mate)}`:''}</div>
         <div class="st-timer final">${r.disqualified?'DQ':fmt(r.final_seconds)}</div>`;
       flag='<span class="st-flag run">DONE</span>';
     } else {
-      body=`<div class="st-idle">No team running here</div>`;
+      body=`<div class="st-name st-last">${esc(r.name)}</div><div class="st-cat">${r.category}${r.play_mode==='team'&&r.mate?` · 👥 ${esc(r.mate)}`:''}</div>
+        <div class="st-timer st-last-time">${r.disqualified?'DQ':fmt(r.final_seconds)}</div>`;
+      flag='<span class="st-flag idle">LAST</span>';
     }
   } else {
     body=`<div class="st-idle">No team running here</div>`;

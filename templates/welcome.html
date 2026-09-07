@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BUILD BACK — Welcome</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+<style>
+  :root{--bg:#06070b;--ink:#f2f4f7;--muted:#8a93a1;--border:rgba(255,255,255,.14);--accent:#fff;
+    --glass:rgba(255,255,255,.05);--glass2:rgba(255,255,255,.09);}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{height:100%;}
+  body{background:radial-gradient(1200px at 50% -10%,rgba(255,255,255,.07),transparent 55%),var(--bg);
+    color:var(--ink);font-family:'Inter',system-ui,sans-serif;overflow:hidden;}
+  body::before{content:"";position:fixed;inset:-25%;z-index:-2;pointer-events:none;
+    background:radial-gradient(600px at 22% 18%,rgba(255,255,255,.05),transparent 60%),
+      radial-gradient(500px at 80% 70%,rgba(255,255,255,.04),transparent 60%);
+    animation:aurora 20s ease-in-out infinite alternate;}
+  @keyframes aurora{0%{transform:translate(0,0)}100%{transform:translate(2%,-1%)}}
+
+  .wrap{height:100vh;display:flex;flex-direction:column;max-width:1500px;margin:0 auto;padding:0 28px;}
+
+  header{display:flex;align-items:baseline;justify-content:space-between;padding:26px 0 10px;}
+  header h1{font-size:clamp(1.5rem,3.4vh,2.4rem);letter-spacing:5px;text-transform:uppercase;font-weight:800;
+    background:linear-gradient(90deg,#fff,#8a93a1,#fff);background-size:200% auto;
+    -webkit-background-clip:text;background-clip:text;color:transparent;animation:shine 9s linear infinite;}
+  @keyframes shine{to{background-position:200% center;}}
+  .hello{font-size:.85rem;color:var(--muted);letter-spacing:2px;text-transform:uppercase;}
+  .hello b{color:#fff;font-weight:700;}
+
+  .stats{display:flex;gap:0;background:rgba(255,255,255,.04);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+    border:1px solid var(--border);border-radius:14px;padding:12px 0;margin:8px 0 18px;}
+  .stat{flex:1;text-align:center;border-right:1px solid var(--border);}
+  .stat:last-child{border-right:none;}
+  .stat .n{font-size:clamp(1.3rem,3vh,2rem);font-weight:800;background:linear-gradient(90deg,#fff,#8a93a1);
+    -webkit-background-clip:text;background-clip:text;color:transparent;}
+  .stat .l{font-size:.6rem;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);margin-top:3px;}
+
+  .boards{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:22px;min-height:0;}
+  .board{display:flex;flex-direction:column;min-height:0;}
+  .board-title{font-size:.78rem;text-transform:uppercase;letter-spacing:2.5px;color:#fff;font-weight:700;margin-bottom:10px;
+    display:flex;align-items:center;gap:10px;}
+  .board-title .line{flex:1;height:1px;background:linear-gradient(90deg,var(--border),transparent);}
+
+  table{width:100%;border-collapse:collapse;background:var(--glass);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+    border:1px solid var(--border);border-radius:14px;overflow:hidden;font-size:.9rem;}
+  th{text-align:left;padding:9px 14px;font-size:.6rem;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);
+    border-bottom:1px solid var(--border);}
+  td{padding:10px 14px;border-bottom:1px solid var(--border);font-size:.9rem;}
+  tr:last-child td{border-bottom:none;}
+  .rank{font-size:1.15rem;font-weight:800;width:50px;text-align:center;}
+  .r1{color:#fff;text-shadow:0 0 14px rgba(255,255,255,.6);} .r2{color:#c9cdd5;} .r3{color:#a9adb6;} .rn{color:var(--muted);}
+  .p-name{font-size:1rem;font-weight:600;}
+  .p-sub{font-size:.68rem;color:var(--muted);margin-top:2px;}
+  .tf{font-family:ui-monospace,monospace;font-size:1.05rem;font-weight:700;color:#fff;text-shadow:0 0 8px rgba(255,255,255,.3);}
+  .tb{font-family:ui-monospace,monospace;font-size:.85rem;color:var(--muted);}
+  .empty{text-align:center;color:var(--muted);padding:26px;font-size:.85rem;background:var(--glass);
+    border:1px solid var(--border);border-radius:14px;}
+
+  .combined-strip{flex:0 0 auto;background:linear-gradient(90deg,rgba(255,255,255,.09),rgba(255,255,255,.04));
+    border:1px solid var(--border);border-radius:14px;padding:14px 18px;margin-top:16px;
+    display:flex;align-items:center;gap:16px;overflow-x:auto;}
+  .cst-label{font-size:.62rem;text-transform:uppercase;letter-spacing:2px;color:var(--muted);flex:none;}
+  .cst{display:flex;align-items:center;gap:10px;flex:none;padding:6px 16px;border-right:1px solid var(--border);}
+  .cst:last-child{border-right:none;}
+  .cst .medal{font-size:1.15rem;}
+  .cst .nm{font-size:.95rem;font-weight:600;white-space:nowrap;}
+  .cst .tm{font-family:ui-monospace,monospace;font-size:1.05rem;font-weight:700;color:#fff;}
+  .cst.empty{color:var(--muted);border:none;}
+
+  .foot{padding:13px 0 18px;text-align:center;font-size:.68rem;letter-spacing:2px;color:var(--muted);text-transform:uppercase;}
+  .foot b{color:#fff;}
+
+  @media (max-width:900px){
+    .boards{grid-template-columns:1fr;gap:14px;}
+    .wrap{overflow-y:auto;padding:0 16px;}
+    header{padding-top:18px;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>BUILD BACK</h1>
+    <div class="hello">Welcome to ASTRA&nbsp;11.0 · <b>Live Standings</b></div>
+  </header>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="boards">
+    <div class="board">
+      <div class="board-title">Level 1 — PC Build<span class="line"></span></div>
+      <div id="pc-board" class="empty" style="border-radius:14px">Waiting for the first finished run…</div>
+    </div>
+    <div class="board">
+      <div class="board-title">Level 2 — Laptop Build<span class="line"></span></div>
+      <div id="lap-board" class="empty" style="border-radius:14px">Waiting for the first finished run…</div>
+    </div>
+  </div>
+
+  <div class="combined-strip" id="combined"></div>
+
+  <div class="foot">SJCET Pala · Dept of Electronics &amp; Computer Engineering · <b>ASTRA 11.0</b></div>
+</div>
+
+<script>
+const socket=io();
+let proj=null;
+socket.on('projector_update',load);
+socket.on('leaderboard_update',load);
+socket.on('stations_update',load);
+
+async function load(){ const r=await fetch('/api/projector'); proj=await r.json(); render(); }
+
+function render(){
+  if(!proj)return;
+  document.getElementById('stats').innerHTML=`
+    <div class="stat"><div class="n">${proj.pc_finished}</div><div class="l">PC Done</div></div>
+    <div class="stat"><div class="n">${proj.laptop_finished}</div><div class="l">Laptop Done</div></div>
+    <div class="stat"><div class="n">${proj.active.length}</div><div class="l">Live Now</div></div>
+    <div class="stat"><div class="n">${proj.total_participants}</div><div class="l">Teams/Players</div></div>
+    <div class="stat"><div class="n">${proj.combined.length}</div><div class="l">Done Both</div></div>`;
+  document.getElementById('pc-board').outerHTML=renderBoard('pc-board','PC',proj.ranked['PC'],proj.dq_rows['PC']);
+  document.getElementById('lap-board').outerHTML=renderBoard('lap-board','Laptop',proj.ranked['Laptop'],proj.dq_rows['Laptop']);
+  renderCombined();
+}
+
+function renderBoard(id,title,data,dqData){
+  const finished=data.filter(x=>!x.disqualified);
+  const total=proj.runs.filter(x=>x.category===title).length;
+  const running=(proj.runs||[]).filter(x=>x.category===title&&x.status==='running');
+  const dq=dqData||[];
+  let rows='<div class="empty" style="border-radius:14px">No completed runs yet</div>';
+  if(finished.length||running.length||dq.length){
+    rows=`<table><thead><tr><th>#</th><th>Participant</th><th>Raw</th><th>Finals</th></tr></thead><tbody>`+
+      finished.map((p,i)=>{
+        const cls=i<3?`r${i+1}`:'rn';
+        return `<tr><td><span class="rank ${cls}">${['🥇','🥈','🥉'][i]||(i+1)}</span></td>
+          <td><div class="p-name">${esc(p.name)}</div><div class="p-sub">${p.play_mode==='team'&&p.mate?`👥 ${esc(p.mate)}`:''}</div></td>
+          <td class="tb">${fmt(p.raw_seconds)}</td>
+          <td class="tf">${fmt(p.final_seconds)}</td></tr>`;
+      }).join('')+
+      running.map(p=>`<tr><td><span class="rank rn">—</span></td>
+        <td><div class="p-name">${esc(p.name)}</div><div class="p-sub">Running… ${p.play_mode==='team'&&p.mate?`👥 ${esc(p.mate)}`:''}</div></td>
+        <td colspan="2" style="color:var(--muted);font-size:.8rem"><div class="dot blink" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#fff;margin-right:6px;box-shadow:0 0 8px #fff"></div>LIVE</td></tr>`).join('')+
+      dq.map(p=>`<tr><td><span class="rank rn">DQ</span></td><td><div class="p-name">${esc(p.name)}</div></td><td colspan="2" style="color:#fff;font-size:.8rem">Disqualified</td></tr>`).join('')+
+      `</tbody></table>`;
+  }
+  return `<div class="board" id="${id}"><div class="board-title">Level ${title==='PC'?'1':'2'} — ${title==='PC'?'PC':'Laptop'} Build<span class="line"></span></div>${rows}</div>`;
+}
+
+function renderCombined(){
+  const el=document.getElementById('combined');
+  if(!proj.combined.length){ el.innerHTML=`<span class="cst-label">Best Combined</span>
+    <span class="cst empty">Ranking appears once teams finish both levels</span>`; return; }
+  el.innerHTML=`<span class="cst-label">Best Combined</span>`+
+    proj.combined.slice(0,8).map((c,i)=>{
+      const medal=['🥇','🥈','🥉'][i]||`${i+1}.`;
+      return `<div class="cst"><span class="medal">${medal}</span>
+        <span class="nm">${esc(c.name)}${c.play_mode==='team'&&c.mate?` 👥`:''}</span>
+        <span class="tm">${fmt(c.total)}</span></div>`;
+    }).join('');
+}
+
+function fmt(s){ if(s===null||s===undefined)return '—'; s=Math.max(0,s); const m=Math.floor(s/60); return `${String(m).padStart(2,'0')}:${(s%60).toFixed(1).padStart(4,'0')}`; }
+function esc(s){ return (s||'').toString().replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+load();
+setInterval(()=>{ load(); },3000);
+</script>
+</body>
+</html>

@@ -341,6 +341,11 @@ def projector_page():
                            categories=CATEGORIES)
 
 
+@app.route('/welcome', methods=['GET'])
+def welcome_page():
+    return render_template('welcome.html', categories=CATEGORIES)
+
+
 @app.route('/preview/<name>', methods=['GET'])
 def preview_page(name):
     path = os.path.join(BASE, 'previews', f'{name}.html')
